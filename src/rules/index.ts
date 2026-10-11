@@ -217,6 +217,7 @@ function nombreBanco(b: BancoEmisor): string {
  * preguntas al usuario: la cuenta no es nuestra, o el emisor es el mismo banco que el destino.
  */
 function rechazoSinCriterio(
+  datos: DatosExtraidos,
   n: DatosNormalizados,
   banco: EvaluacionBanco,
   confirmaciones: Confirmaciones,
@@ -231,6 +232,9 @@ function rechazoSinCriterio(
       return { codigo: "CUENTA_INCORRECTA", mensaje: MENSAJES.CUENTA_INCORRECTA, regla };
     }
     if (encontradas.length === 1) destino = encontradas[0]!.cuenta;
+  } else if (!n.cuentaDestino) {
+    // Sin número visible, el banco destino ("Banco destino: Banorte" o "cuenta Banorte" en la nota).
+    destino = deducirCuenta(datos, n, null)?.coincidencia.cuenta;
   }
 
   const emisor = confirmaciones.banco ?? (banco.suficiente ? { clave: banco.banco, nombreLibre: banco.nombreLibre } : null);
@@ -281,7 +285,7 @@ export function evaluarReglas(entrada: EntradaReglas): ResultadoReglas {
     // se revisan los rechazos que no las necesitan. Las transferencias entre cuentas del mismo banco
     // no pasan por SPEI y por eso no traen clave: lo correcto es decir "mismo banco".
     if (sinCriterio) {
-      const previo = rechazoSinCriterio(n, banco, confirmaciones);
+      const previo = rechazoSinCriterio(datos, n, banco, confirmaciones);
       if (previo) {
         reglas.push(previo.regla);
         return rechazar(previo.codigo, previo.mensaje);

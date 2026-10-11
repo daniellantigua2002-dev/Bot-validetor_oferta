@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ConsultaBanxico } from "../src/banxico/cliente.js";
-import type { EntradaBusqueda, ResultadoBusqueda } from "../src/banxico/reintentos.js";
+import { cuentasAIntentar, type EntradaBusqueda, type ResultadoBusqueda } from "../src/banxico/reintentos.js";
 import type { EvaluacionBanco } from "../src/extraction/banco-emisor.js";
 import type { ResultadoExtraccion } from "../src/extraction/index.js";
 import type { DatosExtraidos } from "../src/extraction/schema.js";
@@ -414,6 +414,40 @@ describe("validarComprobante: nota de la foto", () => {
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA, nota: { cuentaDestino: "9999" } }, deps);
     expect(r.codigo).toBe("CUENTA_INCORRECTA");
     expect(r.extraccion?.cuentaCorregida).toBeUndefined();
+  });
+});
+
+describe("validarComprobante: 'cuenta [banco]' en la nota (se sabe la cuenta, no el número)", () => {
+  /** Números de nuestra cuenta que se consultan en Banxico, en orden. */
+  const numeros = (entrada: EntradaBusqueda) => cuentasAIntentar(entrada.coincidencia, entrada.cuentaDeducida).map(([, tipo]) => tipo);
+
+  it("sin número en la imagen: se prueban los números de esa cuenta, empezando por la tarjeta (antes, solo la CLABE)", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: null } });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA, nota: { cuentaBanco: "BANORTE" } }, deps);
+    expect(r.codigo).toBe("VALIDADO");
+    expect(llamadas.busquedas[0]!.coincidencia.cuenta.banco).toBe("BANORTE");
+    expect(numeros(llamadas.busquedas[0]!).slice(0, 2)).toEqual(["tarjeta", "clabe"]);
+  });
+
+  it("vale para cualquiera de nuestros bancos: 'cuenta Banamex' también prueba su tarjeta", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: null } });
+    await validarComprobante(imagen, { usuario: "123", ahora: AHORA, nota: { cuentaBanco: "BANAMEX" } }, deps);
+    expect(llamadas.busquedas[0]!.coincidencia.cuenta.banco).toBe("BANAMEX");
+    expect(numeros(llamadas.busquedas[0]!).slice(0, 2)).toEqual(["tarjeta", "clabe"]);
+  });
+
+  it("la imagen muestra la tarjeta …1871 y la nota dice 'cuenta Banorte': se consulta con la tarjeta, no se cambia por la CLABE", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1871" } });
+    await validarComprobante(imagen, { usuario: "123", ahora: AHORA, nota: { cuentaBanco: "BANORTE" } }, deps);
+    expect(llamadas.busquedas[0]!.coincidencia).toMatchObject({ tipo: "tarjeta", numero: "4189143097841871" });
+  });
+
+  it("sin clave ni referencia y la nota da el mismo banco que el emisor: 'mismo banco', como antes", async () => {
+    // Inbursa no tiene referencia habitual: sin clave ni referencia no hay con qué buscar (rechazoSinCriterio).
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: null, claveRastreo: null, referencia: null } });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA, nota: { cuentaBanco: "INBURSA", banco: "INBURSA" } }, deps);
+    expect(r.codigo).toBe("MISMO_BANCO");
+    expect(llamadas.busquedas).toHaveLength(0);
   });
 });
 

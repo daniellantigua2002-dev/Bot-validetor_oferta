@@ -213,6 +213,9 @@ export function otrosEmisores(banco: EvaluacionBanco): ClaveBanco[] {
   return [...new Set([clave, firma, modelo, texto, ...banco.candidatos])].filter((b): b is ClaveBanco => !!b && b !== banco.banco);
 }
 
+/** ¿La persona escribió la cuenta en la nota (el número o "cuenta Banorte")? Entonces no se cambia. */
+const cuentaEnNota = (nota: DatosNota | undefined) => !!(nota?.cuentaDestino || nota?.cuentaBanco);
+
 /** Opciones (banco o cuenta) que se prueban en Banxico antes de preguntar o de rechazar, y cómo buscar con cada una. */
 interface Verificacion {
   opciones: Confirmaciones[];
@@ -260,7 +263,7 @@ function verificacionPrevia(
       if (!conClave || confirmaciones.banco || opciones.nota?.banco) return null;
       return { opciones: otrosEmisores(extraccion.banco).slice(0, MAX_BANCOS_A_PROBAR).map(conBanco), maxFechas: FECHAS_POR_OPCION };
     case "CUENTA_INCORRECTA":
-      if (!conClave || confirmaciones.cuentaClabe || opciones.nota?.cuentaDestino) return null;
+      if (!conClave || confirmaciones.cuentaClabe || cuentaEnNota(opciones.nota)) return null;
       return porCuentas(cuentasDelBancoDestino(extraccion.datos.bancoDestino));
     case "REQUIERE_CONFIRMACION_CUENTA":
       if (!conClave || confirmaciones.cuentaClabe) return null;
@@ -386,7 +389,7 @@ export async function validarComprobante(
   let normalizados = normalizarDatos(extraccion.datos);
   let reglas = evaluar(extraccion, normalizados);
   // Si la cuenta la escribió la persona en la nota, no se cambia por la del OCR.
-  if (!reglas.aprobado && reglas.codigo === "CUENTA_INCORRECTA" && !opciones.nota?.cuentaDestino) {
+  if (!reglas.aprobado && reglas.codigo === "CUENTA_INCORRECTA" && !cuentaEnNota(opciones.nota)) {
     const corregida = cuentaSegunOcr(extraccion);
     if (corregida) {
       extraccion = corregida;

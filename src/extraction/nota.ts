@@ -8,7 +8,7 @@
  * sobre los que se leen de la imagen; si la contradicen, la respuesta lo avisa.
  */
 import { formatInTimeZone } from "date-fns-tz";
-import { BANCOS, CUENTAS_DESTINO, ZONA_HORARIA, type ClaveBanco } from "../config.js";
+import { BANCOS, CUENTAS_DESTINO, REGLAS, ZONA_HORARIA, type ClaveBanco } from "../config.js";
 import { resolverBanco } from "../normalize/banco.js";
 import {
   normalizarClaveRastreo,
@@ -29,8 +29,13 @@ export interface DatosNota {
   claveRastreo?: string;
   referencia?: string;
   banco?: ClaveBanco;
-  /** Dígitos de la cuenta destino (terminación o completa); "cuenta Banorte" se guarda como su CLABE. */
+  /** Dígitos de la cuenta destino (terminación o completa). */
   cuentaDestino?: string;
+  /**
+   * "cuenta Banorte": se sabe a cuál de nuestras cuentas fue, pero no con qué número. Se prueban todos sus
+   * números (tarjeta y CLABE), salvo que la imagen ya muestre uno de esa misma cuenta.
+   */
+  cuentaBanco?: ClaveBanco;
 }
 
 export interface NotaLeida {
@@ -123,13 +128,21 @@ function interpretar(campo: Campo, valor: string, nota: NotaLeida, hoy: Date): b
       return true;
     }
     case "cuenta": {
-      // Terminación o número ("1871", "•1871") o el banco de una de nuestras cuentas ("Banorte").
-      const digitos = /^[\d\s*•·.-]+$/.test(valor) ? normalizarCuenta(valor) : null;
-      const banco = digitos ? null : resolverBanco(valor);
-      const cuenta = digitos ?? CUENTAS_DESTINO.find((c) => c.banco === banco)?.clabe;
-      if (!cuenta || cuenta.length < 3) return false;
-      datos.cuentaDestino = cuenta;
-      entendidos.push(`cuenta ${cuentaLegible(cuenta)}`);
+      // Terminación o número ("1871", "•1871") o el banco de una de nuestras cuentas ("Banorte"). Si se
+      // escribe dos veces, vale la última.
+      if (/^[\d\s*•·.-]+$/.test(valor)) {
+        const digitos = normalizarCuenta(valor);
+        if (!digitos || digitos.length < 3) return false;
+        datos.cuentaDestino = digitos;
+        delete datos.cuentaBanco;
+        entendidos.push(`cuenta ${cuentaLegible(digitos)}`);
+        return true;
+      }
+      const banco = resolverBanco(valor);
+      if (!banco || !CUENTAS_DESTINO.some((c) => c.banco === banco)) return false;
+      datos.cuentaBanco = banco;
+      delete datos.cuentaDestino;
+      entendidos.push(`cuenta ${BANCOS[banco].nombre}`);
       return true;
     }
   }
@@ -215,6 +228,18 @@ export function aplicarNota(extraccion: ResultadoExtraccion, nota: DatosNota): R
       diferencias.push({ campo: "cuenta", nota: cuentaLegible(nota.cuentaDestino), imagen: cuentaLegible(deImagen) });
     }
     datos.cuentaDestino = nota.cuentaDestino;
+  }
+  if (nota.cuentaBanco) {
+    const deImagen = normalizarCuenta(imagen.cuentaDestino);
+    const visible = deImagen && deImagen.length >= REGLAS.minDigitosTerminacion ? deImagen : null;
+    const deEsaCuenta = !!visible && buscarCuentasDestino(visible).some((c) => c.cuenta.banco === nota.cuentaBanco);
+    if (visible && !deEsaCuenta) {
+      diferencias.push({ campo: "cuenta", nota: BANCOS[nota.cuentaBanco].nombre, imagen: cuentaLegible(visible) });
+    }
+    // Un número de esa misma cuenta en la imagen es más preciso que el banco: se conserva. Si no hay, se
+    // deduce del banco destino, como cuando el comprobante dice "Banco destino: Banorte" (todos sus números).
+    if (!deEsaCuenta) datos.cuentaDestino = null;
+    datos.bancoDestino = BANCOS[nota.cuentaBanco].nombre;
   }
   if (nota.banco) {
     if (banco.suficiente && banco.banco) comparar("banco", BANCOS[nota.banco].nombre, BANCOS[banco.banco].nombre);
