@@ -1,0 +1,309 @@
+
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1.0,user-scalable=no" />
+<meta charset="utf-8" /> 
+<meta http-equiv="X-UA-Compatible" content="IE=9; IE=8; IE=7; IE=edge" />
+<link rel="apple-touch-icon" href="images/icon.png"/>
+<link rel="shortcut icon" href="images/icon.png">
+<!--Bootstrap-->
+<!--<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css" rel="stylesheet">
+<link rel=stylesheet href="css/bootstrap/bootstrap.min.css" type="text/css">
+<link rel="stylesheet" href="css/bootstrap/dataTables.bootstrap.min.css" type="text/css" >-->
+<link rel=stylesheet href="css/fuentes.css" type="text/css">
+
+    <link rel=stylesheet href="css/cep-min.css" type="text/css">
+
+<!-- JQuery -->
+<script type="text/javascript" src="js/jquery-3.6.1.min.js"></script>
+<script type="text/javascript" src="js/jquery-ui.min.js"></script>
+<script type="text/javascript" src="js/jquery/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="js/datepicker-es.js"></script>
+
+<!-- Validations -->
+<script type="text/javascript" src="js/validations/validateInput.js"></script>
+<script type="text/javascript" src="js/validations/validateEvents.js"></script>
+<script type="text/javascript" src="js/validations/validateWriting.js"></script>
+<script type="text/javascript" src="js/validations/validationBussines.js"></script>
+
+<!--Bootstrap-->
+<!--<script src="js/bootstrap/bootstrap.min.js"></script>-->
+<!--Bootbox Alert-->
+<!--<script type="text/javascript" src="js/bootstrap/bootbox.min.js"></script>-->
+<!--Bootstrap Tables-->
+<!--<script type="text/javascript" src="js/bootstrap/dataTables.bootstrap.min.js"></script>-->
+
+<meta http-equiv="Content-type" content="text/html; charset=UTF-8" /> 
+<style type="text/css">
+    /* 20230216_AJRG_GSC_Se cambia versión de la dependencia cep-generador-comprobante (remover dependencia itext) */
+    @media screen and (min-width: 481px) and (min-height: 551px) { /* no es movil */
+        .contenido-wide {
+            width: 1100px !important;
+            max-width: 1100px !important;
+            /*
+            width: 1050px !important;
+            max-width: 1050px !important;
+            */
+        }
+        .contenido-wide table {
+             width: fit-content !important;
+        }
+    }
+    
+    #consultaMISPEI {
+        padding: 0 !important;
+        margin: 15px !important;
+    }
+    
+    #htmlCEP tr {
+        padding-top: 2px;
+        padding-bottom: 2px;
+    }
+</style>
+<div class="bg-banxico title-bar">
+    <i class="icono-header icon-list"></i>
+    Informaci&oacute;n del estado del pago
+</div>
+<div class="cuerpo-msg">
+    <div id="consultaMISPEI" style="padding: 15px;box-sizing: border-box;overflow-x: auto;">
+        <!-- <div class="info" style="margin-bottom: 10px;"><center><strong>Con la información proporcionada se identificó el siguiente pago:</strong></center></div> -->
+            <div class="info" style="margin-bottom: 10px;"><center><strong>Con la información proporcionada se identificó el siguiente pago:</strong></center></div>
+                    
+            <br><br>
+                           
+                <!-- 20230216_AJRG_GSC_Se cambia versión de la dependencia cep-generador-comprobante (remover dependencia itext) -->
+                <!--<table  id="xxx" class="styled-table" style="margin: auto;">-->
+                <table  id="xxx" class="styled-table vertical" style="margin: auto;">
+                    <tbody>
+                        <tr><td>Número de Referencia</td><td>7454748</td></tr>
+                        <tr><td>Clave de Rastreo</td><td>SPIN-20261008200443959PNEB9</td></tr>
+                        <tr><td>Instituci&oacute;n emisora del pago</td><td>SPIN BY OXXO</td></tr>
+                        <tr><td>Instituci&oacute;n receptora del pago</td><td>BANORTE</td></tr>
+                        <tr><td>Estado del pago en Banxico</td><td>Liquidado</td></tr>
+                        <tr><td>Fecha y hora de recepción</td><td>08/10/2026 14:04:47</td></tr>
+                        <tr><td>Fecha y hora de procesamiento</td><td>08/10/2026 14:04:48</td></tr>
+                                                    
+                    </tbody>
+                </table>                
+            
+        <br><br>
+        
+            <br>
+            
+                <div class="aviso">
+                    <p class="aviso">IMPORTANTE: Con la información proporcionada no se pudo validar la Cuenta Beneficiaria ni el Monto del pago. Por tal motivo, no se debe utilizar esta consulta como comprobante de la acreditación de ninguna operación en tanto no se valide dicha información. Para ello, descarga el CEP.</p>
+                </div>
+            
+            <br>
+            <div class="aviso-info">
+                <p class="aviso">IMPORTANTE: Esta consulta no es un Comprobante Electrónico de Pago (CEP). El CEP es un documento digital que hace constar la acreditación del monto correspondiente a una orden de transferencia en la cuenta beneficiaria efectuada a través de este sistema. Si requieres comprobar la acreditación de alguna operación, descarga el CEP.</p>
+            </div>            
+        
+    </div>               
+    
+        <div style="text-align: center;margin-top: 15px;margin-bottom: 70px;">
+            <form method="POST" action="descargaComprobanteSPEI.do"  accept-charset="UTF-8" onsubmit="return start_download();">
+                <input id="htmlCEP" type="hidden" name="htmlCEPImprimir"/>
+                <input type="submit" value="Descargar">
+            </form>
+            <a id="btnEstadosPago" class="textoFormatosDescarga">Descripci&oacute;n de los estados del pago [+]</a><br/>
+            <div class="descripcion oculta">
+                <div id="desc_EnProceso" class="descripcionEstado seleccionado">
+                    <h4>En proceso</h4>
+                    <p>El SPEI&reg; ha recibido de la instituci&oacute;n ordenante la 
+                        instrucci&oacute;n de pago, pero no la ha liquidado.
+                    </p>
+                </div>
+                <div id="desc_Liquidado" class="descripcionEstado noSeleccionado">
+                    <h4>Liquidado</h4>
+                    <p>El pago ha sido liquidado en el SPEI&reg; y &eacute;ste 
+                        ha enviado la notificaci&oacute;n correspondiente a la 
+                        instituci&oacute;n del beneficiario. Dicha instituci&oacute;n
+                        ya est&aacute; en  posibilidades de depositar los 
+                        recursos a la cuenta del beneficiario.
+                        <br>
+                        En caso de que los recursos no estuvieran disponibles 
+                        para el beneficiario, &eacute;ste podr&iacute;a 
+                        presentar a la instituci&oacute;n receptora la impresi&oacute;n del 
+                        estado del pago, con el fin de solicitar que se 
+                        reconozca el monto en la cuenta beneficiaria.
+                        <br>
+                        En caso de que la respuesta de la instituci&oacute;n receptora no fuera
+                        satisfactoria, sugerir&iacute;amos presentar el caso 
+                        ante la Comisi&oacute;n Nacional para la 
+                        Protecci&oacute;n y Defensa de los Usuarios de Servicios
+                        Financieros (CONDUSEF, <a href="http://www.gob.mx/condusef">http://www.gob.mx/condusef</a>). 
+                        Es importante mencionar que, el funcionamiento de esta 
+                        liga, as&iacute; como su contenido, no es 
+                        responsabilidad de Banco de M&eacute;xico. Corresponde a
+                        la CONDUSEF su publicaci&oacute;n y actualizaci&oacute;n.
+                    </p>
+                </div>
+                <div id="desc_Cancelado" class="descripcionEstado noSeleccionado">
+                    <h4>Cancelado</h4>
+                    <p>El pago fue recibido por el SPEI&reg;, sin embargo fue 
+                        cancelado por la instituci&oacute;n que recibi&oacute; la 
+                        instrucci&oacute;n de pago de su cliente, previo a que 
+                        fuera liquidado por el SPEI&reg;.
+                        <br>
+                        La instituci&oacute;n emisora deber&aacute; reintegrar el importe del 
+                        pago al titular de la cuenta ordenante. En caso de que 
+                        esto no ocurra, el titular de la cuenta ordenante 
+                        podr&aacute; presentar a la instituci&oacute;n emisora la 
+                        impresi&oacute;n del estado del pago para que le 
+                        solicite que efect&uacute;e la reintegraci&oacute;n del
+                        monto.
+                        <br>
+                        En caso de que la respuesta de la instituci&oacute;n emisora no fuera
+                        satisfactoria, sugerir&iacute;amos presentar el caso 
+                        ante la Comisi&oacute;n Nacional para la 
+                        Protecci&oacute;n y Defensa de los Usuarios de Servicios
+                        Financieros (CONDUSEF, <a href="http://www.gob.mx/condusef">http://www.gob.mx/condusef</a>). 
+                        Es importante mencionar que, el funcionamiento de esta 
+                        liga, as&iacute; como su contenido, no es 
+                        responsabilidad de Banco de M&eacute;xico. Corresponde a
+                        la CONDUSEF su publicaci&oacute;n y actualizaci&oacute;n.
+                    </p>
+                </div>
+                <div id="desc_Rechazado" class="descripcionEstado noSeleccionado">
+                    <h4>Rechazado</h4>
+                    <p>El pago fue rechazado por el SPEI&reg; debido a errores 
+                        en la informaci&oacute;n que recibi&oacute; de la 
+                        instituci&oacute;n emisora para procesar el pago o a un
+                        problema grave de seguridad.
+                        <br>
+                        La instituci&oacute;n emisora deber&aacute; reintegrar el importe del 
+                        pago al titular de la cuenta ordenante. En caso de que 
+                        esto no ocurra, el titular de la cuenta ordenante 
+                        podr&aacute; presentar a la instituci&oacute;n emisora la 
+                        impresi&oacute;n del estado del pago para que le 
+                        solicite que efect&uacute;e la reintegraci&oacute;n del
+                        monto.
+                        <br>
+                        En caso de que la respuesta de la instituci&oacute;n emisora no fuera
+                        satisfactoria, sugerir&iacute;amos presentar el caso 
+                        ante la Comisi&oacute;n Nacional para la 
+                        Protecci&oacute;n y Defensa de los Usuarios de Servicios
+                        Financieros (CONDUSEF, <a href="http://www.gob.mx/condusef">http://www.gob.mx/condusef</a>). 
+                        Es importante mencionar que, el funcionamiento de esta 
+                        liga, as&iacute; como su contenido, no es 
+                        responsabilidad de Banco de M&eacute;xico. Corresponde a
+                        la CONDUSEF su publicaci&oacute;n y actualizaci&oacute;n.
+                    </p>
+                </div>
+                <div id="desc_EnProcesoDeDevolucion" class="descripcionEstado noSeleccionado">
+                    <h4>En proceso de devoluci&oacute;n</h4>
+                    <p>El pago fue liquidado y posteriormente devuelto por la 
+                        instituci&oacute;n del beneficiario. La devoluci&oacute;n se 
+                        encuentra pendiente de liquidaci&oacute;n.
+                    </p>
+                </div>
+                <div id="desc_Devuelto" class="descripcionEstado noSeleccionado">
+                    <h4>Devuelto</h4>
+                    <p>El pago fue devuelto por la instituci&oacute;n del beneficiario; dicha
+                        devoluci&oacute;n fue liquidada por el SPEI&reg; e 
+                        informada a la instituci&oacute;n que originalmente envi&oacute; la 
+                        orden de pago. Este &uacute;ltimo ya est&aacute; en 
+                        posibilidades de depositarlo en la cuenta del cliente
+                        que instruy&oacute; el pago.
+                        <br>
+                        En caso de que la instituci&oacute;n que originalmente envi&oacute; 
+                        la orden de pago no realice el dep&oacute;sito, el 
+                        titular de la cuenta ordenante podr&aacute; presentar a la
+                        instituci&oacute;n emisora la impresi&oacute;n del estado del pago 
+                        para que le solicite que efect&uacute;e el 
+                        dep&oacute;sito del monto.
+                        <br>
+                        En caso de que la respuesta de la instituci&oacute;n emisora no fuera
+                        satisfactoria, sugerir&iacute;amos presentar el caso 
+                        ante la Comisi&oacute;n Nacional para la 
+                        Protecci&oacute;n y Defensa de los Usuarios de Servicios
+                        Financieros (CONDUSEF, <a href="http://www.gob.mx/condusef">http://www.gob.mx/condusef</a>). 
+                        Es importante mencionar que, el funcionamiento de esta 
+                        liga, as&iacute; como su contenido, no es 
+                        responsabilidad de Banco de M&eacute;xico. Corresponde a
+                        la CONDUSEF su publicaci&oacute;n y actualizaci&oacute;n.
+                    </p>
+                </div>
+                <div id="desc_CanceladoAlCierre" class="descripcionEstado noSeleccionado">
+                    <h4>No liquidado</h4>
+                    <p>El pago se recibi&oacute; en el SPEI&reg; pero no pudo 
+                        ser liquidado durante la jornada operativa respectiva y
+                        al cierre del sistema se elimin&oacute;. La instituci&oacute;n del 
+                        ordenante deber&aacute; reintegrar el monto del pago al
+                        cliente que le instruy&oacute; el mismo.
+                        <br>
+                        En caso de que la instituci&oacute;n ordenante no reintegre el monto
+                        del pago a su cliente, el titular de la cuenta ordenante
+                        podr&aacute; presentar a la instituci&oacute;n emisora la 
+                        impresi&oacute;n del estado del pago para que le 
+                        solicite que efect&uacute;e la reintegraci&oacute;n del 
+                        monto.
+                        <br>
+                        En caso de que la respuesta de la instituci&oacute;n emisora no fuera
+                        satisfactoria, sugerir&iacute;amos presentar el caso 
+                        ante la Comisi&oacute;n Nacional para la 
+                        Protecci&oacute;n y Defensa de los Usuarios de Servicios
+                        Financieros (CONDUSEF, <a href="http://www.gob.mx/condusef">http://www.gob.mx/condusef</a>). 
+                        Es importante mencionar que, el funcionamiento de esta 
+                        liga, as&iacute; como su contenido, no es 
+                        responsabilidad de Banco de M&eacute;xico. Corresponde a
+                        la CONDUSEF su publicaci&oacute;n y actualizaci&oacute;n.
+                    </p>
+                </div>
+                <div id="desc_No_encontrado" class="descripcionEstado noSeleccionado">
+                    <h4>No encontrado</h4>
+                    <p>El SPEI&reg; no ha recibido una orden de pago que cumpla 
+                        con el criterio de b&uacute;squeda especificado.
+                    </p>
+                </div>
+                <div id="desc_Retornado" class="descripcionEstado noSeleccionado">
+                    <h4>Retornado</h4>
+                    <p>El pago fue retornado por la instituci&oacute;n del beneficiario; 
+                        dicho retorno fue liquidado por el SPEI&reg; e informado a la instituci&oacute;n 
+                        que originalmente envi&oacute; la orden de pago. Esta &uacute;ltima ya est&aacute; 
+                        en posibilidades de depositar el monto del retorno, 
+                        que puede ser igual o menor al monto de la orden de pago original, 
+                        en la cuenta del cliente que instruy&oacute; el pago. 
+                        En caso de que la instituci&oacute;n que originalmente envi&oacute; la orden de pago 
+                        no realice el dep&oacute;sito, el titular de la cuenta ordenante podrá presentar 
+                        a la instituci&oacute;n emisora la impresi&oacute;n del estado del pago para que 
+                        le solicite que efect&uacute;e el dep&oacute;sito del monto. 
+                        En caso de que la respuesta de la instituci&oacute;n emisora no fuera satisfactoria, 
+                        sugerir&iacute;amos presentar el caso ante la Comisi&oacute;n Nacional para la Protecci&oacute;n y 
+                        Defensa de los Usuarios de Servicios Financieros (CONDUSEF, <a href="http://www.gob.mx/condusef">http://www.gob.mx/condusef</a>)
+                        Es importante mencionar que, el funcionamiento de esta liga, así como su contenido, 
+                        no es responsabilidad de Banco de M&eacute;xico. Corresponde a la CONDUSEF su publicaci&oacute;n y 
+                        actualizaci&oacute;n.
+                    </p>
+                </div>
+
+            </div>
+            <br>
+            <br>
+            <div></div>
+        </div>
+           
+</div>
+
+<script>
+    $(document).ready(function () {
+        if ($(".operacionesLiquidados").length || $(".operacionesDevueltas").length) {
+            $(".cuerpo-msg").addClass('contenido-wide');
+        }
+    });
+    
+//    $(function () {
+//        $("#htmlCEP").val($("#consultaMISPEI").html());
+//    });
+
+    function start_download() {
+//        if ($(".operacionesLiquidados").length || $(".operacionesDevueltas").length) {
+//            $(".cuerpo-msg").removeClass('contenido-wide');
+//            $("#htmlCEP").val($("#desc_Liquidado").html());
+//        }
+        // evt.preventDefault();
+        var $htmlToSend = $('#consultaMISPEI').clone();
+        $("#htmlCEP").val($htmlToSend.html());
+        return true;
+    }
+
+</script>

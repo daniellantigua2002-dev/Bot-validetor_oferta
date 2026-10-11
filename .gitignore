@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+data/
+# Salidas del script de exploración (pueden contener datos reales de pagos)
+tests/fixtures/banxico/exploracion/
+.cache/
+# Comprobantes reales para medir el bot (datos de pagos de personas)
+Imagenes de prueba/
+*.log
