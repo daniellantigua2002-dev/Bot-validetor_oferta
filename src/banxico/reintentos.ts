@@ -9,8 +9,8 @@
  *      primero el día anterior.
  *   2. Criterio: clave de rastreo y, si no aparece, número de referencia (la del comprobante o, si no
  *      trae, la que la app del banco pone sola: BANCOS[…].referenciaHabitual).
- *   3. Cuenta: la que coincidió (tarjeta/cuenta) y, si no aparece, la CLABE del mismo banco. Si la
- *      cuenta no se vio en el comprobante: todos sus números (tarjeta, CLABE y cuenta).
+ *   3. Cuenta (cuentasAIntentar): si se vio en el comprobante, solo ese número. Si no se vio (se dedujo
+ *      del banco o la eligió la persona): todos sus números.
  *
  * En qué orden, para encontrar pronto lo más probable y caber en el tiempo máximo de la cola:
  *   a. la fecha más probable, completa;
@@ -164,12 +164,15 @@ export function fechasAIntentar(fecha: string | null, ahora: Date, opciones: Opc
 const ORDEN_CUENTA_DEDUCIDA: TipoCuenta[] = ["tarjeta", "clabe", "cuenta"];
 
 /**
- * Números de nuestra cuenta a consultar. Si la cuenta se vio en el comprobante: el que coincidió y,
- * si no aparece, la CLABE. Si no se vio (se dedujo o la eligió la persona): todos sus números.
+ * Números de nuestra cuenta a consultar (regla del usuario, 11-oct: si se tiene la cuenta, solo esa; si solo
+ * se sabe el banco, todos sus números):
+ * - la cuenta se vio en el comprobante: solo ese número. En los comprobantes reales, Banxico siempre tuvo el
+ *   número que se veía (tarjeta → tarjeta, CLABE → CLABE). El número de cuenta suelto, además, la CLABE;
+ * - no se vio (se dedujo del banco o la eligió la persona): todos sus números.
  */
 export function cuentasAIntentar(c: CoincidenciaCuenta, deducida = false): [string, TipoCuenta][] {
   const numeros = c.cuenta as Partial<Record<TipoCuenta, string>>;
-  const tipos: TipoCuenta[] = deducida ? [c.tipo, ...ORDEN_CUENTA_DEDUCIDA] : [c.tipo, "clabe"];
+  const tipos: TipoCuenta[] = deducida ? [c.tipo, ...ORDEN_CUENTA_DEDUCIDA] : c.tipo === "cuenta" ? ["cuenta", "clabe"] : [c.tipo];
   const lista: [string, TipoCuenta][] = [];
   for (const tipo of tipos) {
     const numero = tipo === c.tipo ? c.numero : numeros[tipo];

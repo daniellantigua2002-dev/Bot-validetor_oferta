@@ -224,26 +224,28 @@ describe("buscarEnBanxico: búsqueda normal", () => {
     ]);
   });
 
-  it("coincidencia por tarjeta y pago hecho a la CLABE: el sondeo confirma la clave y la CLABE lo encuentra", async () => {
-    const { deps, consultas } = banxicoFalso([SPIN_BANORTE]);
-    const r = await buscarEnBanxico(entrada({}, { coincidencia: coincidenciaTarjeta }), deps);
-    expect(r.estado).toBe("VALIDADO");
-    expect(resumen(consultas)).toEqual([
-      `08-10-2026 T ${BANORTE.tarjeta} 400.00`,
-      "08-10-2026 T - -",
-      `08-10-2026 T ${BANORTE.clabe} 400.00`,
-    ]);
-  });
-
-  it("coincidencia por tarjeta y clave inexistente: no gasta la consulta con la CLABE para esa clave", async () => {
+  it("se ve la tarjeta: solo se consulta con la tarjeta, nunca con la CLABE (regla del usuario, 11-oct)", async () => {
     const { deps, consultas } = banxicoFalso([]);
     await buscarEnBanxico(entrada({}, { coincidencia: coincidenciaTarjeta }), deps);
-    expect(resumen(consultas).slice(0, 4)).toEqual([
+    expect(resumen(consultas).slice(0, 3)).toEqual([
       `08-10-2026 T ${BANORTE.tarjeta} 400.00`,
       "08-10-2026 T - -",
       `08-10-2026 R ${BANORTE.tarjeta} 400.00`,
-      `08-10-2026 R ${BANORTE.clabe} 400.00`,
     ]);
+    expect(consultas.some((c) => c.cuenta === BANORTE.clabe)).toBe(false);
+  });
+
+  it("se ve la tarjeta y Banxico tiene el pago a la CLABE: ya no se prueba la CLABE (en los comprobantes reales nunca pasó)", async () => {
+    const { deps, consultas } = banxicoFalso([SPIN_BANORTE]); // SPIN_BANORTE fue a la CLABE
+    const r = await buscarEnBanxico(entrada({}, { coincidencia: coincidenciaTarjeta }), deps);
+    expect(r.estado).toBe("CUENTA_INCORRECTA");
+    expect(consultas.some((c) => c.cuenta === BANORTE.clabe)).toBe(false);
+  });
+
+  it("se ve la CLABE: solo se consulta con la CLABE", async () => {
+    const { deps, consultas } = banxicoFalso([]);
+    await buscarEnBanxico(entrada(), deps);
+    expect(new Set(consultas.map((c) => c.cuenta).filter(Boolean))).toEqual(new Set([BANORTE.clabe]));
   });
 
   it("nada en ninguna fecha → NO_ENCONTRADO: la clave sola en cada fecha confirma que no existe y el mensaje lo dice", async () => {
@@ -306,8 +308,7 @@ describe("comprobantes viejos y con fecha mal impresa o mal leída", () => {
     expect(resumen(consultas)).toEqual([
       `02-10-2026 T ${BANORTE.tarjeta} 990.00`,
       "02-10-2026 T - -",
-      `02-10-2026 R ${BANORTE.tarjeta} 990.00`,
-      `02-10-2026 R ${BANORTE.clabe} 990.00`,
+      `02-10-2026 R ${BANORTE.tarjeta} 990.00`, // solo la tarjeta, que es la que se ve
       "01-10-2026 T - -", // la clave no existe el 01: ese día no se consulta más
       "03-10-2026 T - -", // existe el 03…
       `03-10-2026 T ${BANORTE.tarjeta} 990.00`, // …y aparece con nuestra tarjeta y el monto
@@ -319,8 +320,8 @@ describe("comprobantes viejos y con fecha mal impresa o mal leída", () => {
     const r = await buscarEnBanxico(mercadoPago(), deps);
     expect(r).toMatchObject({ estado: "NO_ENCONTRADO", claveInexistente: true });
     expect(new Set(consultas.map((c) => c.fecha))).toEqual(new Set(["02-10-2026", "01-10-2026", "03-10-2026", "30-09-2026", "04-10-2026"]));
-    // El 02 completo (4) y la clave sola en las otras 4 fechas.
-    expect(r.mensaje).toBe("Banxico no tiene ningún pago con la clave de rastreo CPO181053611151: busqué del 30/09 al 04/10/2026 (8 consultas).");
+    // El 02 completo (3: clave, clave sola y referencia, solo con la tarjeta) y la clave sola en las otras 4 fechas.
+    expect(r.mensaje).toBe("Banxico no tiene ningún pago con la clave de rastreo CPO181053611151: busqué del 30/09 al 04/10/2026 (7 consultas).");
   });
 
   it("la clave existe en una fecha vecina pero con otra cuenta → CUENTA_INCORRECTA (detección temprana en cualquier fecha)", async () => {
@@ -343,7 +344,7 @@ describe("comprobantes viejos y con fecha mal impresa o mal leída", () => {
     const r = await buscarEnBanxico(mercadoPago({}, { fechasAlternativas: ["2026-10-07"] }), deps);
     expect(r.estado).toBe("VALIDADO");
     expect(consultas.at(-1)?.fecha).toBe("07-10-2026");
-    expect(consultas).toHaveLength(6); // 02 completa (4) y en la del 07 la clave sola y la principal
+    expect(consultas).toHaveLength(5); // 02 completa (3) y en la del 07 la clave sola y la principal
   });
 });
 
@@ -429,14 +430,13 @@ describe("buscarEnBanxico: detección temprana de comprobantes alterados", () =>
     expect(sinClave.estado).toBe("VALIDADO");
   });
 
-  it("por tarjeta: antes de concluir que la cuenta no coincide, prueba la CLABE", async () => {
-    const { deps, consultas } = banxicoFalso([{ ...SPIN_BANORTE, monto: "999.00" }]);
+  it("por tarjeta: la clave existe con otro monto → MONTO_NO_COINCIDE sin probar la CLABE", async () => {
+    const { deps, consultas } = banxicoFalso([{ ...SPIN_BANORTE, cuenta: BANORTE.tarjeta, monto: "999.00" }]);
     const r = await buscarEnBanxico(entrada({}, { coincidencia: coincidenciaTarjeta }), deps);
     expect(r.estado).toBe("MONTO_NO_COINCIDE");
     expect(resumen(consultas)).toEqual([
       `08-10-2026 T ${BANORTE.tarjeta} 400.00`,
       "08-10-2026 T - -",
-      `08-10-2026 T ${BANORTE.clabe} 400.00`,
       "08-10-2026 T - 400.00",
     ]);
   });
@@ -748,16 +748,14 @@ describe("lo aprendido de los comprobantes reales (Imagenes de prueba, confirmad
     expect(consultas.map((c) => `${c.criterio} ${c.cuenta}`)).toEqual([`4755884 ${BANORTE.clabe}`, `7841871 ${BANORTE.tarjeta}`]);
   });
 
-  it("cuenta deducida: se prueban todos sus números; vista: el que coincidió y la CLABE", () => {
+  it("cuenta deducida: se prueban todos sus números; vista: solo ese número", () => {
     expect(cuentasAIntentar(coincidenciaTarjeta, true)).toEqual([
       [BANORTE.tarjeta, "tarjeta"],
       [BANORTE.clabe, "clabe"],
       [BANORTE.cuenta, "cuenta"],
     ]);
-    expect(cuentasAIntentar(coincidenciaTarjeta)).toEqual([
-      [BANORTE.tarjeta, "tarjeta"],
-      [BANORTE.clabe, "clabe"],
-    ]);
+    expect(cuentasAIntentar(coincidenciaTarjeta)).toEqual([[BANORTE.tarjeta, "tarjeta"]]);
+    expect(cuentasAIntentar(coincidenciaClabe)).toEqual([[BANORTE.clabe, "clabe"]]);
   });
 
   it("clave cortada por la imagen: vale el pago cuya clave empieza igual", async () => {
