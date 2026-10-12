@@ -758,6 +758,13 @@ describe("cuenta que no se ve ni se puede deducir, con clave: se prueban nuestra
     expect(r.codigo).toBe("REQUIERE_CONFIRMACION_CUENTA");
     expect(llamadas.busquedas).toHaveLength(0);
   });
+
+  it("el comprobante dice que fue a BBVA (donde no tenemos cuenta): cuentas incorrectas, sin probar las 4 ni preguntar", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: null, bancoDestino: "BBVA" } });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(r.codigo).toBe("CUENTA_INCORRECTA");
+    expect(llamadas.busquedas).toHaveLength(0);
+  });
 });
 
 describe("mismo banco con clave de rastreo: antes de decirlo se prueban en Banxico los otros bancos posibles", () => {

@@ -172,6 +172,16 @@ describe("Paso B: regla 3, cuenta destino", () => {
     expect(evaluar({ cuentaDestino: "1871", bancoDestino: "Inbursa" })).toMatchObject({ aprobado: true, cuentaDeducida: false });
   });
 
+  it("sin dígitos y el banco destino es uno donde no tenemos cuenta (BBVA) → cuentas incorrectas, sin preguntar", () => {
+    const r = evaluar({ cuentaDestino: null, bancoDestino: "BBVA" });
+    expect(r).toMatchObject({ codigo: "CUENTA_INCORRECTA" });
+    expect(r.reglas.at(-1)).toMatchObject({ regla: "Cuenta destino", paso: false, detalle: "el banco destino es BBVA, donde no tenemos cuenta" });
+  });
+
+  it("sin dígitos y un banco destino que no se reconoce: se pregunta, como antes", () => {
+    expect(evaluar({ cuentaDestino: null, bancoDestino: "Cuenta de ahorro" })).toMatchObject({ codigo: "REQUIERE_CONFIRMACION_CUENTA" });
+  });
+
   it("sin dígitos o con menos del mínimo → se pregunta a cuál cuenta", () => {
     for (const cuentaDestino of [null, "84"]) {
       const r = evaluar({ cuentaDestino });

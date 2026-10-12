@@ -189,6 +189,12 @@ function deducirCuenta(
   return null;
 }
 
+/** Banco destino que el comprobante nombra y donde no tenemos cuenta ("BBVA"); null si es nuestro o no se reconoce. */
+function bancoDestinoAjeno(bancoDestino: string | null | undefined): ClaveBanco | null {
+  const banco = resolverBanco(bancoDestino);
+  return banco && !CUENTAS_DESTINO.some((c) => c.banco === banco) ? banco : null;
+}
+
 /**
  * Nuestras cuentas en las que vale la pena buscar en Banxico un pago cuya cuenta visible no es nuestra
  * (puede estar mal leída): la del banco destino si es uno de los nuestros; si el comprobante no dice el
@@ -315,6 +321,13 @@ export function evaluarReglas(entrada: EntradaReglas): ResultadoReglas {
       reglas.push({ regla: "Cuenta destino", paso: true, detalle: `${coincidencia.cuenta.banco} (${coincidencia.tipo} …${digitos})` });
     } else {
       const deducida = deducirCuenta(datos, n, visibles);
+      // El comprobante dice que fue a un banco donde no tenemos cuenta (por ejemplo BBVA): no es nuestra
+      // cuenta. Se rechaza sin consultar ni preguntar (regla del usuario, 11-oct).
+      const ajeno = deducida ? null : bancoDestinoAjeno(datos.bancoDestino);
+      if (ajeno) {
+        reglas.push({ regla: "Cuenta destino", paso: false, detalle: `el banco destino es ${BANCOS[ajeno].nombre}, donde no tenemos cuenta` });
+        return rechazar("CUENTA_INCORRECTA", MENSAJES.CUENTA_INCORRECTA);
+      }
       if (!deducida) {
         const detalle = visibles
           ? `${visibles.length} cuentas terminan en ${digitos}`
