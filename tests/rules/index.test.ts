@@ -7,6 +7,7 @@ import {
   buscarCuentasDestino,
   buscarCuentasParecidas,
   cuentasDelBancoDestino,
+  cuentasDelBeneficiario,
   evaluarReglas,
   MENSAJES,
   type EntradaReglas,
@@ -249,6 +250,40 @@ describe("buscarCuentasParecidas: números nuestros que se parecen a una cuenta 
   it("de la más parecida a la menos", () => {
     const errores = buscarCuentasParecidas("072650010094755834").map((p) => p.errores);
     expect(errores).toEqual([...errores].sort((a, b) => a - b));
+  });
+});
+
+describe("cuentasDelBeneficiario: el nombre como pista para buscar más (nunca para rechazar)", () => {
+  const bancos = (...nombres: (string | null)[]) => cuentasDelBeneficiario(...nombres).map((c) => c.banco);
+  const DE_GABRIEL = ["BANORTE", "BANAMEX", "BANCOPPEL"];
+
+  it.each([
+    ["Gabriel Alejandro Fondacaro Rielo", "completo"],
+    ["GABRIEL ALEJANDRO FONDACARO RIELO", "en mayúsculas"],
+    ["Gabriel Alejandro Fondacaro", "sin el segundo apellido"],
+    ["Gabriel Fondacaro R", "con la inicial del segundo apellido"],
+    ["GABRIEL F**", "enmascarado: nombre e inicial"],
+    ["Gábriel Aléjandro", "con acentos"],
+  ])("%s → sus 3 cuentas (%s)", (nombre) => {
+    expect(bancos(nombre)).toEqual(DE_GABRIEL);
+  });
+
+  it("una empresa: MEXIOFERTAS → Inbursa", () => {
+    expect(bancos("MEXIOFERTAS")).toEqual(["INBURSA"]);
+    expect(bancos("Mexiofertas SA de CV")).toEqual(["INBURSA"]);
+  });
+
+  it.each([
+    ["Gabriel", "solo el nombre de pila: hay muchos Gabriel"],
+    ["Nicolas A Josid", "otra persona"],
+    ["Fernando Gabriel", "otra persona con un nombre en común"],
+    [null, "sin nombre"],
+  ] as [string | null, string][])("%s → ninguna (%s)", (nombre) => {
+    expect(bancos(nombre)).toEqual([]);
+  });
+
+  it("basta con que coincida una de las lecturas (la IA o el OCR)", () => {
+    expect(bancos("pago de champu", "Gabriel Alejandro Fondacaro")).toEqual(DE_GABRIEL);
   });
 });
 

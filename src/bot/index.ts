@@ -288,6 +288,7 @@ export function crearBot(
         `${e?.completadoConOcr ? `, completado con el OCR: ${e.completadoConOcr.join(", ")}` : ""}` +
         `${r.montoCorregido ? `, monto corregido: se leyó ${r.montoCorregido.leido} y en Banxico es ${r.montoCorregido.banxico}` : ""}` +
         `${r.cuentaParecida ? `, cuenta parecida: se leyó ${r.cuentaParecida.leida} y se buscó con la nuestra ${r.cuentaParecida.usada}` : ""}` +
+        `${r.cuentaPorBeneficiario ? `, por el beneficiario: "${r.cuentaPorBeneficiario.beneficiario}" es titular de nuestra cuenta ${r.cuentaPorBeneficiario.banco}` : ""}` +
         `${r.ruta ? `, ruta ${r.ruta}` : ""})`,
     );
     // El detalle de cada consulta no va al grupo (allí solo el resumen): queda aquí.

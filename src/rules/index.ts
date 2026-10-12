@@ -218,6 +218,56 @@ export function buscarCuentasParecidas(digitos: string | null | undefined): Cuen
   return parecidas.sort((a, b) => a.errores - b.errores);
 }
 
+/** Palabras de un nombre en minúsculas, sin acentos ni signos: "GABRIEL F**" → ["gabriel", "f"]. */
+function palabrasDeNombre(nombre: string): string[] {
+  return nombre
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-zñ\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * ¿El nombre leído es el de este titular? Cada palabra completa que coincide vale 1 y cada inicial que
+ * coincide con otra palabra del titular, ½ ("GABRIEL F" = 1½). Un titular de una sola palabra (una empresa,
+ * "MEXIOFERTAS") con esa palabra; uno de varias, con 1½ o más y al menos una palabra completa: un nombre de
+ * pila solo ("Gabriel") no basta.
+ */
+function esElTitular(leido: string[], titular: string[]): boolean {
+  const pendientes = [...titular];
+  let completas = 0;
+  let iniciales = 0;
+  for (const palabra of leido.filter((p) => p.length > 1)) {
+    const i = pendientes.indexOf(palabra);
+    if (i >= 0) {
+      pendientes.splice(i, 1);
+      completas++;
+    }
+  }
+  for (const inicial of leido.filter((p) => p.length === 1)) {
+    const i = pendientes.findIndex((p) => p.startsWith(inicial));
+    if (i >= 0) {
+      pendientes.splice(i, 1);
+      iniciales++;
+    }
+  }
+  if (titular.length === 1) return completas === 1;
+  return completas >= 1 && completas + iniciales / 2 >= 1.5;
+}
+
+/**
+ * Nuestras cuentas cuyo titular es el beneficiario que dice el comprobante ("Gabriel Alejandro Fondacaro" →
+ * Banorte, Banamex y BanCoppel; "MEXIOFERTAS" → Inbursa). Pedido del usuario (11-oct): el nombre es solo una
+ * pista para decidir si vale la pena buscar más cuando la cuenta leída no es nuestra; **nunca** sirve para
+ * rechazar (el usuario no quiere que se revise el titular).
+ */
+export function cuentasDelBeneficiario(...nombres: (string | null | undefined)[]): CuentaDestino[] {
+  const leidos = nombres.filter((n): n is string => !!n?.trim()).map(palabrasDeNombre);
+  return CUENTAS_DESTINO.filter((c) => leidos.some((leido) => esElTitular(leido, palabrasDeNombre(c.titular))));
+}
+
 /** Primer número de una cuenta para consultar cuando no se vio cuál: la tarjeta si tiene, si no la CLABE. */
 function coincidenciaDeCuenta(cuenta: CuentaDestino): CoincidenciaCuenta {
   const tarjeta = (cuenta as Partial<Record<TipoCuenta, string>>).tarjeta;

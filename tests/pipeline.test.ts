@@ -704,8 +704,8 @@ describe("cuenta visible que no es nuestra, con clave de rastreo: antes de recha
     expect(llamadas.busquedas[0]!.maxFechas).toBeUndefined();
   });
 
-  it("no dice el banco destino y la cuenta no se parece a ninguna nuestra (…8852): cuentas incorrectas, sin consultar", async () => {
-    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "8852", bancoDestino: null } });
+  it("no dice el banco destino, la cuenta no se parece a ninguna nuestra (…8852) y el beneficiario es otra persona: cuentas incorrectas, sin consultar", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "8852", bancoDestino: null, beneficiario: "Nicolas A Josid" } });
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
     expect(r).toMatchObject({ codigo: "CUENTA_INCORRECTA", mensaje: MENSAJES.CUENTA_INCORRECTA });
     expect(r.cuentaParecida).toBeUndefined();
@@ -829,7 +829,7 @@ describe("cuenta leída que no es nuestra pero SE PARECE a uno de nuestros núme
   });
 
   it("Banxico no lo tiene con nuestro número: cuentas incorrectas, con la consulta hecha", async () => {
-    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874", bancoDestino: null }, busquedas: [SIN_PAGO] });
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874", bancoDestino: null, beneficiario: "Nicolas A Josid" }, busquedas: [SIN_PAGO] });
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
     expect(r).toMatchObject({ codigo: "CUENTA_INCORRECTA", mensaje: MENSAJES.CUENTA_INCORRECTA });
     expect(llamadas.busquedas).toHaveLength(1);
@@ -841,6 +841,65 @@ describe("cuenta leída que no es nuestra pero SE PARECE a uno de nuestros núme
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA, nota: { cuentaDestino: "1874" } }, deps);
     expect(r.codigo).toBe("CUENTA_INCORRECTA");
     expect(llamadas.busquedas).toHaveLength(0);
+  });
+});
+
+describe("cuenta muy mal leída sin banco destino: el beneficiario como pista (pedido del usuario, 11-oct)", () => {
+  // "0555577886" (un folio leído como cuenta) no se parece a ninguno de nuestros números.
+  const muyMalLeida = (cambios: Partial<DatosExtraidos> = {}) => ({ cuentaDestino: "0555577886", bancoDestino: null, ...cambios });
+
+  it("el beneficiario es nuestro titular: se prueban sus cuentas, rápido, y se valida en la que lo tiene", async () => {
+    const { deps, llamadas } = falsas({ datos: muyMalLeida(), busquedas: [NO_ENCONTRADO, VALIDADO] });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(r.codigo).toBe("VALIDADO");
+    expect(llamadas.busquedas.map((b) => b.coincidencia.cuenta.banco)).toEqual(["BANORTE", "BANAMEX"]);
+    expect(llamadas.busquedas.every((b) => b.soloClave === true && b.maxFechas === 2 && b.cuentaDeducida)).toBe(true);
+    expect(r.cuentaPorBeneficiario).toEqual({ beneficiario: "Gabriel Alejandro Fondacaro Rielo", banco: "BANAMEX" });
+  });
+
+  it("ninguna de sus cuentas lo tiene: cuentas incorrectas, con las consultas hechas", async () => {
+    const { deps, llamadas } = falsas({ datos: muyMalLeida(), busquedas: [SIN_PAGO] });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(r).toMatchObject({ codigo: "CUENTA_INCORRECTA", mensaje: MENSAJES.CUENTA_INCORRECTA });
+    expect(llamadas.busquedas).toHaveLength(3); // Banorte, Banamex y BanCoppel
+    expect(r.cuentaPorBeneficiario).toBeUndefined();
+  });
+
+  it("MEXIOFERTAS: solo Inbursa", async () => {
+    const { deps, llamadas } = falsas({ datos: muyMalLeida({ beneficiario: "MEXIOFERTAS" }) });
+    await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(llamadas.busquedas.map((b) => b.coincidencia.cuenta.banco)).toEqual(["INBURSA"]);
+  });
+
+  it("el nombre de la IA es otro, pero el OCR lee el de nuestro titular: también cuenta", async () => {
+    const texto = "Beneficiario: Gabriel Alejandro Fondacaro\nCuenta de destino\n0555577886";
+    const f = conLectura(falsas({ datos: muyMalLeida({ beneficiario: "pago de champu" }) }), { textoOcr: texto });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, f.deps);
+    expect(r.codigo).toBe("VALIDADO");
+    expect(f.llamadas.busquedas[0]!.coincidencia.cuenta.banco).toBe("BANORTE");
+  });
+
+  it.each([
+    ["el beneficiario es otra persona", { beneficiario: "Nicolas A Josid" }],
+    ["no se ve el beneficiario", { beneficiario: null }],
+    ["sin clave de rastreo (por referencia serían ~30 consultas)", { claveRastreo: null }],
+    ["el comprobante dice otro banco (Santander)", { bancoDestino: "Santander" }],
+  ])("%s: cuentas incorrectas, sin consultar", async (_caso, cambios: Partial<DatosExtraidos>) => {
+    const { deps, llamadas } = falsas({ datos: muyMalLeida(cambios) });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(r.codigo).toBe("CUENTA_INCORRECTA");
+    expect(llamadas.busquedas).toHaveLength(0);
+  });
+
+  it("número parecido y beneficiario nuestro: primero el parecido (búsqueda completa) y después sus cuentas (rápido)", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874", bancoDestino: null }, busquedas: [NO_ENCONTRADO, NO_ENCONTRADO, VALIDADO] });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(r.codigo).toBe("VALIDADO");
+    const [parecida, ...porNombre] = llamadas.busquedas;
+    expect(parecida!.coincidencia.numero).toBe("4189143097841871");
+    expect(parecida!.soloClave).toBeUndefined();
+    expect(porNombre.map((b) => b.coincidencia.cuenta.banco)).toEqual(["BANORTE", "BANAMEX"]);
+    expect(porNombre.every((b) => b.soloClave === true && b.maxFechas === 2)).toBe(true);
   });
 });
 
