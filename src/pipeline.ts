@@ -19,11 +19,13 @@ import { aplicarNota, type DatosNota } from "./extraction/nota.js";
 import { normalizarCuenta, normalizarDatos, normalizarFechaIso, normalizarMonto, type ConsultaReferencias } from "./normalize/index.js";
 import {
   buscarCuentasDestino,
+  buscarCuentasParecidas,
   cuentasDelBancoDestino,
   esPagoReciente,
   evaluarReglas,
   mensajeDuplicado,
   type Confirmaciones,
+  type CuentaParecida,
   type ReglasAprobadas,
   type ReglasRechazadas,
 } from "./rules/index.js";
@@ -120,6 +122,8 @@ export interface ResultadoValidacion {
   busquedaIncompleta?: boolean;
   /** El monto leído no coincidía en Banxico y el pago apareció con otro de los montos leídos (el del OCR o el de la imagen). */
   montoCorregido?: MontoCorregido;
+  /** La cuenta leída no era nuestra pero se parecía a uno de nuestros números, y se buscó con él. */
+  cuentaParecida?: CuentaParecidaUsada;
   /** Milisegundos por etapa. */
   tiempos: Partial<Record<"lectura" | "reglas" | "banxico" | "captura" | "total", number>>;
 }
@@ -216,11 +220,50 @@ export function otrosEmisores(banco: EvaluacionBanco): ClaveBanco[] {
 /** ¿La persona escribió la cuenta en la nota (el número o "cuenta Banorte")? Entonces no se cambia. */
 const cuentaEnNota = (nota: DatosNota | undefined) => !!(nota?.cuentaDestino || nota?.cuentaBanco);
 
+/** Número nuestro que se parece a la cuenta leída (y con cuál lectura, la de la IA o la del OCR). */
+interface Parecida extends CuentaParecida {
+  leida: string;
+}
+
+/** La cuenta leída no era nuestra, pero se parecía a uno de nuestros números y se buscó con él. */
+export interface CuentaParecidaUsada {
+  /** Lo que se leyó en el comprobante. */
+  leida: string;
+  /** Nuestro número con el que se buscó en Banxico. */
+  usada: string;
+}
+
+/** Una opción que se prueba en Banxico: un banco o una cuenta (todos sus números), o un número parecido al leído. */
+interface OpcionVerificacion {
+  confirmaciones: Confirmaciones;
+  /** Se busca con este número nuestro en lugar de la cuenta leída. */
+  parecida?: Parecida;
+}
+
 /** Opciones (banco o cuenta) que se prueban en Banxico antes de preguntar o de rechazar, y cómo buscar con cada una. */
 interface Verificacion {
-  opciones: Confirmaciones[];
+  opciones: OpcionVerificacion[];
   maxFechas?: number;
   soloClave?: boolean;
+}
+
+/**
+ * Números nuestros que se parecen a la cuenta leída por la IA o por el OCR (buscarCuentasParecidas), sin
+ * repetir: el número de cuenta suelto cuenta como su CLABE, que es con la que se busca.
+ */
+export function numerosParecidos(extraccion: ResultadoExtraccion, n: DatosNormalizados): Parecida[] {
+  const lecturas = [n.cuentaDestino];
+  if (extraccion.origen === "nvidia" && extraccion.textoOcr) lecturas.push(normalizarCuenta(extraerDeTexto(extraccion.textoOcr).cuentaDestino));
+  const porNumero = new Map<string, Parecida>();
+  for (const leida of lecturas) {
+    if (!leida) continue;
+    for (const p of buscarCuentasParecidas(leida)) {
+      const numero = p.tipo === "cuenta" ? p.cuenta.clabe : p.numero;
+      const previa = porNumero.get(numero);
+      if (!previa || p.errores < previa.errores) porNumero.set(numero, { ...p, leida });
+    }
+  }
+  return [...porNumero.values()].sort((a, b) => a.errores - b.errores);
 }
 
 /**
@@ -230,8 +273,11 @@ interface Verificacion {
  * - mismo banco, pero con clave de rastreo: una transferencia entre cuentas del mismo banco no pasa por SPEI
  *   y no trae clave, así que el banco emisor pudo leerse mal; se prueban los otros bancos que indican las
  *   señales y, si ninguno aparece, sí es del mismo banco;
- * - cuenta que no es nuestra, con clave: pudo leerse mal; nuestra cuenta del banco destino si es uno de los
- *   nuestros (ninguna si el comprobante no dice el banco destino o es otro banco);
+ * - cuenta que no es nuestra: pudo leerse mal.
+ *   - con clave, nuestra cuenta del banco destino si es uno de los nuestros (todos sus números);
+ *   - con o sin clave, cada número nuestro que se PARECE a lo leído (numerosParecidos: un dígito mal leído,
+ *     recortado, enmascarado), con ese número: si se parece a la tarjeta Banorte, con la tarjeta Banorte;
+ *   - si no se parece a ninguno y el banco destino no es nuestro (o no se ve), nada: "Cuentas incorrectas";
  * - cuenta que no se ve ni se pudo deducir, con clave: nuestras cuentas posibles, antes de preguntar.
  * No se cambia lo que la persona eligió con los botones o escribió en la nota.
  */
@@ -242,14 +288,13 @@ function verificacionPrevia(
   opciones: OpcionesValidacion,
 ): Verificacion | null {
   const confirmaciones = opciones.confirmaciones ?? {};
-  const conBanco = (clave: ClaveBanco): Confirmaciones => ({ ...confirmaciones, banco: { clave, nombreLibre: null } });
-  const conCuenta = (cuenta: CuentaDestino): Confirmaciones => ({ ...confirmaciones, cuentaClabe: cuenta.clabe });
-  // Una sola cuenta posible se busca completa; varias, rápido: solo la clave en las fechas más probables.
-  const porCuentas = (cuentas: readonly CuentaDestino[]): Verificacion =>
-    cuentas.length > 1
-      ? { opciones: cuentas.map(conCuenta), maxFechas: FECHAS_POR_OPCION, soloClave: true }
-      : { opciones: cuentas.map(conCuenta) };
+  const conBanco = (clave: ClaveBanco): OpcionVerificacion => ({ confirmaciones: { ...confirmaciones, banco: { clave, nombreLibre: null } } });
+  const conCuenta = (cuenta: CuentaDestino): OpcionVerificacion => ({ confirmaciones: { ...confirmaciones, cuentaClabe: cuenta.clabe } });
   const conClave = !!n.claveRastreo;
+  // Una sola opción se busca completa; varias, con clave, rápido: solo la clave en las fechas más probables.
+  // Sin clave no hay búsqueda rápida (la referencia no tiene sondeo): cada una completa.
+  const probar = (lista: OpcionVerificacion[]): Verificacion =>
+    lista.length > 1 && conClave ? { opciones: lista, maxFechas: FECHAS_POR_OPCION, soloClave: true } : { opciones: lista };
   switch (reglas.codigo) {
     case "REQUIERE_CONFIRMACION_BANCO":
       // Rápido (solo la clave): si ninguno aparece se pregunta el banco y entonces se hace la búsqueda completa.
@@ -262,15 +307,29 @@ function verificacionPrevia(
     case "MISMO_BANCO":
       if (!conClave || confirmaciones.banco || opciones.nota?.banco) return null;
       return { opciones: otrosEmisores(extraccion.banco).slice(0, MAX_BANCOS_A_PROBAR).map(conBanco), maxFechas: FECHAS_POR_OPCION };
-    case "CUENTA_INCORRECTA":
-      if (!conClave || confirmaciones.cuentaClabe || cuentaEnNota(opciones.nota)) return null;
-      return porCuentas(cuentasDelBancoDestino(extraccion.datos.bancoDestino));
+    case "CUENTA_INCORRECTA": {
+      if (confirmaciones.cuentaClabe || cuentaEnNota(opciones.nota)) return null;
+      const delBanco = conClave ? cuentasDelBancoDestino(extraccion.datos.bancoDestino) : [];
+      // Las parecidas de una cuenta que ya se prueba entera (la del banco destino) no se repiten.
+      const parecidas = numerosParecidos(extraccion, n).filter((p) => !delBanco.includes(p.cuenta));
+      const lista = [...delBanco.map(conCuenta), ...parecidas.map((parecida): OpcionVerificacion => ({ confirmaciones, parecida }))];
+      return lista.length ? probar(lista) : null;
+    }
     case "REQUIERE_CONFIRMACION_CUENTA":
       if (!conClave || confirmaciones.cuentaClabe) return null;
-      return porCuentas(reglas.candidatosCuenta?.length ? reglas.candidatosCuenta : CUENTAS_DESTINO);
+      return probar((reglas.candidatosCuenta?.length ? reglas.candidatosCuenta : CUENTAS_DESTINO).map(conCuenta));
     default:
       return null;
   }
+}
+
+/** Los datos leídos con nuestro número parecido en lugar de la cuenta leída (Banxico verifica el número completo). */
+function conNumeroParecido(extraccion: ResultadoExtraccion, n: DatosNormalizados, parecida: Parecida | undefined) {
+  if (!parecida) return { extraccion, normalizados: n };
+  return {
+    extraccion: { ...extraccion, datos: { ...extraccion.datos, cuentaDestino: parecida.numero } },
+    normalizados: { ...n, cuentaDestino: parecida.numero },
+  };
 }
 
 /** Una búsqueda hecha y con qué datos (el monto puede ser otro de los leídos). */
@@ -321,6 +380,7 @@ interface Evaluacion {
   reglas: ReglasAprobadas;
   busqueda: ResultadoBusqueda;
   montoCorregido?: MontoCorregido;
+  cuentaParecida?: CuentaParecidaUsada;
 }
 
 export async function validarComprobante(
@@ -428,13 +488,16 @@ export async function validarComprobante(
   if (verificacion?.opciones.length) {
     progreso({ etapa: "BANXICO", consulta: 1 });
     const t1 = Date.now();
-    for (const confirmaciones of verificacion.opciones) {
+    for (const { confirmaciones, parecida } of verificacion.opciones) {
       opciones.signal?.throwIfAborted();
-      const conOpcion = evaluar(extraccion, normalizados, confirmaciones);
+      // Con un número parecido, las reglas y la búsqueda usan ese número en lugar de la cuenta leída.
+      const conNumero = conNumeroParecido(extraccion, normalizados, parecida);
+      const conOpcion = evaluar(conNumero.extraccion, conNumero.normalizados, confirmaciones);
       if (!conOpcion.aprobado) continue; // por ejemplo, ese banco sería el mismo que el destino
       const previos = intentosPrevios.length;
       const hecha = await buscarConSegundaOpinion(
         busquedaCon(conOpcion, {
+          normalizados: conNumero.normalizados,
           maxFechas: verificacion.maxFechas ?? maxFechas,
           soloClave: verificacion.soloClave,
           alIntentar: (i, numero) => alIntentar(i, previos + numero),
@@ -447,7 +510,8 @@ export async function validarComprobante(
       if (CONCLUYENTES.has(hecha.busqueda.estado)) {
         tiempos.banxico = (tiempos.banxico ?? 0) + (Date.now() - t1);
         const busqueda = { ...hecha.busqueda, intentos: intentosPrevios };
-        return terminar(await finalizar({ ...hecha, extraccion, reglas: conOpcion, busqueda }, "normal", opciones, deps, tiempos));
+        const cuentaParecida = parecida ? { leida: parecida.leida, usada: parecida.numero } : undefined;
+        return terminar(await finalizar({ ...hecha, extraccion, reglas: conOpcion, busqueda, cuentaParecida }, "normal", opciones, deps, tiempos));
       }
     }
     tiempos.banxico = (tiempos.banxico ?? 0) + (Date.now() - t1);
@@ -582,7 +646,7 @@ async function aprenderReferencia(banco: BancoEmisor, pago: PagoBanxico, consult
 
 /** Resultado de Banxico → registro en usados (si se validó) → foto. */
 async function finalizar(
-  { extraccion, normalizados, reglas, busqueda, montoCorregido }: Evaluacion,
+  { extraccion, normalizados, reglas, busqueda, montoCorregido, cuentaParecida }: Evaluacion,
   ruta: "rapida" | "normal",
   opciones: OpcionesValidacion,
   deps: DependenciasPipeline,
@@ -590,6 +654,7 @@ async function finalizar(
 ): Promise<Omit<ResultadoValidacion, "tiempos">> {
   const resultado = {
     ...(montoCorregido ? { montoCorregido } : {}),
+    ...(cuentaParecida ? { cuentaParecida } : {}),
     ruta,
     extraccion,
     normalizados,

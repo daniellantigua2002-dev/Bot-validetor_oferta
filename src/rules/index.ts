@@ -154,6 +154,70 @@ export function buscarCuentasDestino(digitos: string): CoincidenciaCuenta[] {
   return coincidencias;
 }
 
+/** Un número nuestro que se parece al leído, y a cuántos errores de lectura está (0 = enmascarado en medio). */
+export type CuentaParecida = CoincidenciaCuenta & { errores: number };
+
+/** Menos dígitos que estos no bastan para decir que se parece: con 3, uno de cada 5 números ajenos se parecería. */
+const MIN_DIGITOS_PARECIDO = 4;
+/** Desde estos dígitos el número leído puede ser un pedazo de cualquier parte del nuestro (la imagen cortó el final). */
+const MIN_DIGITOS_RECORTE = 8;
+
+/**
+ * Menor número de errores de lectura (un dígito cambiado, de más o de menos) entre `leido` y un pedazo de
+ * `numero`: su final si `alFinal` (las cuentas se enmascaran por el principio: "****1871"), o cualquier parte.
+ */
+function erroresDeLectura(leido: string, numero: string, alFinal: boolean): number {
+  // Distancia de edición con el inicio libre en `numero` (y el final libre si no tiene que ser al final).
+  let fila = Array.from({ length: numero.length + 1 }, () => 0);
+  for (let i = 1; i <= leido.length; i++) {
+    const nueva = [i];
+    for (let j = 1; j <= numero.length; j++) {
+      const cambio = fila[j - 1]! + (leido[i - 1] === numero[j - 1] ? 0 : 1);
+      nueva[j] = Math.min(cambio, fila[j]! + 1, nueva[j - 1]! + 1);
+    }
+    fila = nueva;
+  }
+  return alFinal ? fila[numero.length]! : Math.min(...fila);
+}
+
+/** "41891871" = la tarjeta 4189 •••• •••• 1871 con la máscara de en medio quitada (el principio y el final del número). */
+function enmascaradaEnMedio(leido: string, numero: string): boolean {
+  if (leido.length < 6 || leido.length >= numero.length) return false;
+  for (let k = 2; k <= leido.length - 3; k++) {
+    if (numero.startsWith(leido.slice(0, k)) && numero.endsWith(leido.slice(k))) return true;
+  }
+  return false;
+}
+
+/**
+ * Números nuestros que se PARECEN a la cuenta leída sin coincidir con ella: un dígito mal leído (1874 por
+ * 1871), uno de más o de menos, el número recortado por la imagen o enmascarado en medio. Pedido del
+ * usuario (11-oct): si se parece a uno de nuestros números, probar con ese número. Va de los más parecidos
+ * a los menos. Banxico verifica después el número completo, el monto y la clave: es seguro.
+ * - Con menos de 4 dígitos no se busca parecido.
+ * - Errores permitidos: 1 hasta 9 dígitos leídos, 2 desde 10.
+ */
+export function buscarCuentasParecidas(digitos: string | null | undefined): CuentaParecida[] {
+  const leido = digitos?.replace(/\D/g, "") ?? "";
+  if (leido.length < MIN_DIGITOS_PARECIDO) return [];
+  const permitidos = leido.length >= 10 ? 2 : 1;
+  const parecidas: CuentaParecida[] = [];
+  for (const cuenta of CUENTAS_DESTINO) {
+    for (const tipo of ORDEN_TIPOS) {
+      const numero = (cuenta as Partial<Record<TipoCuenta, string>>)[tipo];
+      if (!numero || numero.endsWith(leido)) continue; // coincide: no es "parecida"
+      const errores = enmascaradaEnMedio(leido, numero)
+        ? 0
+        : Math.min(
+            erroresDeLectura(leido, numero, true),
+            leido.length >= MIN_DIGITOS_RECORTE ? erroresDeLectura(leido, numero, false) : Infinity,
+          );
+      if (errores <= permitidos) parecidas.push({ cuenta, tipo, numero, errores });
+    }
+  }
+  return parecidas.sort((a, b) => a.errores - b.errores);
+}
+
 /** Primer número de una cuenta para consultar cuando no se vio cuál: la tarjeta si tiene, si no la CLABE. */
 function coincidenciaDeCuenta(cuenta: CuentaDestino): CoincidenciaCuenta {
   const tarjeta = (cuenta as Partial<Record<TipoCuenta, string>>).tarjeta;

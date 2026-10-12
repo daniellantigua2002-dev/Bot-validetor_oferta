@@ -5,6 +5,7 @@ import type { DatosExtraidos } from "../../src/extraction/schema.js";
 import { normalizarDatos } from "../../src/normalize/index.js";
 import {
   buscarCuentasDestino,
+  buscarCuentasParecidas,
   cuentasDelBancoDestino,
   evaluarReglas,
   MENSAJES,
@@ -209,6 +210,45 @@ describe("Paso B: regla 3, cuenta destino", () => {
     expect(r.aprobado && r.cuentaDeducida).toBe(true);
     const banorte = evaluar({ cuentaDestino: null }, { confirmaciones: { cuentaClabe: "072650010004755884" } });
     expect(banorte.aprobado && banorte.coincidencia).toMatchObject({ tipo: "tarjeta", numero: "4189143097841871" });
+  });
+});
+
+describe("buscarCuentasParecidas: números nuestros que se parecen a una cuenta leída que no coincide (pedido del usuario, 11-oct)", () => {
+  /** "BANCO tipo errores" de cada parecida. */
+  const parecidas = (leido: string) => buscarCuentasParecidas(leido).map((p) => `${p.cuenta.banco} ${p.tipo} ${p.errores}`);
+
+  it.each([
+    ["1874", "BANORTE tarjeta 1", "un dígito mal leído de la tarjeta …1871"],
+    ["5883", "BANORTE clabe 1", "un dígito mal leído de la CLABE …5884"],
+    ["1617", "BANAMEX cuenta 1", "un dígito mal leído del número de cuenta Banamex 2461618"],
+    ["18711", "BANORTE tarjeta 1", "un dígito de más"],
+    ["41891871", "BANORTE tarjeta 0", "tarjeta enmascarada en medio (4189 •••• •••• 1871)"],
+    ["418914309784", "BANORTE tarjeta 0", "tarjeta recortada por la imagen al final"],
+    ["07265001000475588", "BANORTE clabe 0", "CLABE recortada al final (17 dígitos)"],
+    ["07265001000475584", "BANORTE clabe 1", "CLABE con un dígito de menos en medio"],
+    ["072650010094755834", "BANORTE clabe 2", "CLABE completa con 2 dígitos mal leídos"],
+  ])("%s → %s (%s)", (leido, esperada) => {
+    expect(parecidas(leido)).toEqual([esperada]);
+  });
+
+  it("se parece a dos números (…4948: tarjeta …4988 y cuenta …4942 de BanCoppel): los dos", () => {
+    expect(parecidas("4948")).toEqual(["BANCOPPEL tarjeta 1", "BANCOPPEL cuenta 1"]);
+  });
+
+  it.each([
+    ["8852", "BanCoppel de otra persona (carpeta 8)"],
+    ["9151", "Banamex de otra persona (Varios)"],
+    ["002180701849395151", "CLABE Banamex completa de otra persona"],
+    ["187", "solo 3 dígitos: no basta para decir que se parece"],
+    ["1871", "coincide exacto: no es 'parecida'"],
+    ["", "nada leído"],
+  ])("%s → ninguna (%s)", (leido) => {
+    expect(buscarCuentasParecidas(leido)).toEqual([]);
+  });
+
+  it("de la más parecida a la menos", () => {
+    const errores = buscarCuentasParecidas("072650010094755834").map((p) => p.errores);
+    expect(errores).toEqual([...errores].sort((a, b) => a - b));
   });
 });
 
