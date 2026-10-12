@@ -748,11 +748,17 @@ describe("lo aprendido de los comprobantes reales (Imagenes de prueba, confirmad
     expect(consultas.map((c) => `${c.criterio} ${c.cuenta}`)).toEqual([`4755884 ${BANORTE.clabe}`, `7841871 ${BANORTE.tarjeta}`]);
   });
 
-  it("cuenta deducida: se prueban todos sus números; vista: solo ese número", () => {
+  it("cuenta deducida: sus números que sirven en SPEI (tarjeta y CLABE, sin el número suelto); vista: solo ese número", () => {
     expect(cuentasAIntentar(coincidenciaTarjeta, true)).toEqual([
       [BANORTE.tarjeta, "tarjeta"],
       [BANORTE.clabe, "clabe"],
-      [BANORTE.cuenta, "cuenta"],
+    ]);
+    // Inbursa no tiene tarjeta: solo la CLABE.
+    expect(cuentasAIntentar({ cuenta: INBURSA, tipo: "clabe", numero: INBURSA.clabe }, true)).toEqual([[INBURSA.clabe, "clabe"]]);
+    // Deducida por el número suelto (por ejemplo, la referencia de Azteca): tampoco se consulta con él.
+    expect(cuentasAIntentar({ cuenta: BANORTE, tipo: "cuenta", numero: BANORTE.cuenta }, true)).toEqual([
+      [BANORTE.tarjeta, "tarjeta"],
+      [BANORTE.clabe, "clabe"],
     ]);
     expect(cuentasAIntentar(coincidenciaTarjeta)).toEqual([[BANORTE.tarjeta, "tarjeta"]]);
     expect(cuentasAIntentar(coincidenciaClabe)).toEqual([[BANORTE.clabe, "clabe"]]);

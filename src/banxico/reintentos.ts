@@ -161,7 +161,8 @@ export function fechasAIntentar(fecha: string | null, ahora: Date, opciones: Opc
   return plan.slice(0, MAX_FECHAS);
 }
 
-const ORDEN_CUENTA_DEDUCIDA: TipoCuenta[] = ["tarjeta", "clabe", "cuenta"];
+/** Sin el número de cuenta suelto: SPEI solo acepta CLABE, tarjeta o celular, así que Banxico nunca lo tiene. */
+const ORDEN_CUENTA_DEDUCIDA: TipoCuenta[] = ["tarjeta", "clabe"];
 
 /**
  * Números de nuestra cuenta a consultar (regla del usuario, 11-oct: si se tiene la cuenta, solo esa; si solo
@@ -169,11 +170,16 @@ const ORDEN_CUENTA_DEDUCIDA: TipoCuenta[] = ["tarjeta", "clabe", "cuenta"];
  * - la cuenta se vio en el comprobante: solo ese número. En los comprobantes reales, Banxico siempre tuvo el
  *   número que se veía (tarjeta → tarjeta, CLABE → CLABE). Si se ve el número de cuenta suelto, su CLABE:
  *   SPEI solo acepta CLABE, tarjeta o celular, así que Banxico nunca tiene el número suelto;
- * - no se vio (se dedujo del banco o la eligió la persona): todos sus números.
+ * - no se vio (se dedujo del banco o la eligió la persona): todos sus números que sirven en SPEI (tarjeta y
+ *   CLABE), empezando por el de la coincidencia.
  */
 export function cuentasAIntentar(c: CoincidenciaCuenta, deducida = false): [string, TipoCuenta][] {
   const numeros = c.cuenta as Partial<Record<TipoCuenta, string>>;
-  const tipos: TipoCuenta[] = deducida ? [c.tipo, ...ORDEN_CUENTA_DEDUCIDA] : c.tipo === "cuenta" ? ["clabe"] : [c.tipo];
+  const tipos: TipoCuenta[] = deducida
+    ? [c.tipo, ...ORDEN_CUENTA_DEDUCIDA].filter((t) => t !== "cuenta")
+    : c.tipo === "cuenta"
+      ? ["clabe"]
+      : [c.tipo];
   const lista: [string, TipoCuenta][] = [];
   for (const tipo of tipos) {
     const numero = tipo === c.tipo ? c.numero : numeros[tipo];
