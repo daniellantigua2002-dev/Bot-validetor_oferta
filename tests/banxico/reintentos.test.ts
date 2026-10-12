@@ -758,6 +758,15 @@ describe("lo aprendido de los comprobantes reales (Imagenes de prueba, confirmad
     expect(cuentasAIntentar(coincidenciaClabe)).toEqual([[BANORTE.clabe, "clabe"]]);
   });
 
+  it("se ve el número de cuenta suelto (…3306): directo su CLABE, porque SPEI nunca lo usa", async () => {
+    const numeroSuelto: CoincidenciaCuenta = { cuenta: BANORTE, tipo: "cuenta", numero: BANORTE.cuenta };
+    expect(cuentasAIntentar(numeroSuelto)).toEqual([[BANORTE.clabe, "clabe"]]);
+    const { deps, consultas } = banxicoFalso([SPIN_BANORTE]); // a la CLABE
+    const r = await buscarEnBanxico(entrada({ cuentaDestino: "3306" }, { coincidencia: numeroSuelto }), deps);
+    expect(r.estado).toBe("VALIDADO");
+    expect(resumen(consultas)).toEqual([`08-10-2026 T ${BANORTE.clabe} 400.00`]);
+  });
+
   it("clave cortada por la imagen: vale el pago cuya clave empieza igual", async () => {
     const pago: PagoFalso = { ...BBVA_NOCHE, fecha: "09-10-2026", clave: "MBAN01002610090089417907", monto: "590.00" };
     const { deps } = banxicoFalso([pago]);
