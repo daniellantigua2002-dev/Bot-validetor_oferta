@@ -15,6 +15,7 @@ import { peticion, type ConsultaBanxico } from "../banxico/cliente.js";
 import { parsearRespuesta } from "../banxico/parser.js";
 import { RITMO, turnoBanxico } from "../banxico/ritmo.js";
 import { BANXICO, CAPTURA, ZONA_HORARIA } from "../config.js";
+import { enServidor } from "../entorno.js";
 
 export const CARPETA_CAPTURAS = resolve("data/capturas");
 const SELECTOR_TABLA = "#consultaMISPEI table#xxx";
@@ -207,6 +208,9 @@ export async function capturarResultado(
   } catch (e) {
     await respaldo[0]();
     return { ruta, metodo: respaldo[1], aviso: (e as Error).message };
+  } finally {
+    // En el servidor hay poca memoria (512 MB en Render gratis): el navegador no se queda abierto (abrirlo tarda 1–2 s).
+    if (enServidor) await cerrarNavegador().catch(() => undefined);
   }
 }
 

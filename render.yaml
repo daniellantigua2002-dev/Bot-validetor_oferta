@@ -1,0 +1,21 @@
+# Servicio en Render (https://render.com): "New" → "Blueprint" → este repositorio.
+# Las claves NO van aquí: Render las pide al crear el servicio (sync: false). Copiarlas del .env de la PC.
+# Ver la sección "Desplegar en Render" del README.
+services:
+  - type: web
+    name: validador-spei
+    runtime: docker
+    plan: free
+    region: ohio
+    healthCheckPath: /
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ALLOWED_USER_IDS
+        sync: false
+      - key: ALLOWED_CHAT_IDS
+        sync: false

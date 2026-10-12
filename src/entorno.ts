@@ -16,6 +16,8 @@ const EntornoSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().default(""),
   ALLOWED_USER_IDS: z.string().default(""),
   ALLOWED_CHAT_IDS: z.string().default(""),
+  // Lo pone el servidor (Render): con él, el bot abre una página de salud en ese puerto. En la PC, vacío.
+  PORT: z.string().default(""),
 });
 
 const crudo = EntornoSchema.parse(process.env);
@@ -39,4 +41,9 @@ export const entorno = {
   usuariosPermitidos: listaDeIds(crudo.ALLOWED_USER_IDS),
   /** Grupos donde cualquier miembro puede usar el bot (sus IDs empiezan con -100). */
   gruposPermitidos: listaDeIds(crudo.ALLOWED_CHAT_IDS),
+  /** Puerto de la página de salud; null en la PC (sin servidor). */
+  puerto: crudo.PORT.trim() ? Number(crudo.PORT) : null,
 };
+
+/** ¿Corre en un servidor (Render)? Allí hay poca memoria: el navegador de la foto se cierra al terminar. */
+export const enServidor = entorno.puerto !== null;

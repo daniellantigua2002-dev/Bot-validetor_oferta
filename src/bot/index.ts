@@ -16,7 +16,7 @@
  *   los revisa juntos el vigía (vigia.ts): una sola petición a Banxico cada 3 min, no una por comprobante.
  * - Al arrancar deja fijada en cada grupo la guía de cómo enviar el comprobante y su nota.
  */
-import { Bot, GrammyError, HttpError, InlineKeyboard, InputFile, type Api } from "grammy";
+import { Bot, GrammyError, HttpError, InlineKeyboard, InputFile, type Api, type PollingOptions } from "grammy";
 import { randomBytes } from "node:crypto";
 import { appendFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -25,7 +25,7 @@ import { revisarBanxico, type SaludBanxico } from "../banxico/reintentos.js";
 import { RITMO } from "../banxico/ritmo.js";
 import { cerrarNavegador } from "../capture/screenshot.js";
 import { BANCOS, CUENTAS_DESTINO, ZONA_HORARIA, type ClaveBanco } from "../config.js";
-import { entorno } from "../entorno.js";
+import { enServidor, entorno } from "../entorno.js";
 import type { ResultadoExtraccion } from "../extraction/index.js";
 import { leerNota, type NotaLeida } from "../extraction/nota.js";
 import { terminarOcr } from "../extraction/ocr-fallback.js";
@@ -744,9 +744,12 @@ export async function iniciarBot(): Promise<void> {
     { command: "start", description: "Cómo usar el validador" },
     { command: "ayuda", description: "Ayuda" },
   ]);
-  await bot.start({
+  let arranco = false;
+  const opciones: PollingOptions = {
     // grammY espera a que termine onStart antes de recibir mensajes: la cola guardada se retoma primero.
     onStart: async (yo) => {
+      if (arranco) return; // tras un reintento por 409 no se repite
+      arranco = true;
       log(
         `Bot @${yo.username} en línea (long polling). Usuarios autorizados: ${entorno.usuariosPermitidos.join(", ") || "ninguno"}.` +
           ` Grupos autorizados: ${entorno.gruposPermitidos.join(", ") || "ninguno"}`,
@@ -758,5 +761,22 @@ export async function iniciarBot(): Promise<void> {
       if (retomados) log(`Se retomaron ${retomados} comprobantes que quedaron pendientes antes del reinicio`);
       await fijarGuia(yo.id);
     },
-  });
+  };
+  for (let intento = 1; ; intento++) {
+    try {
+      await bot.start(opciones);
+      return;
+    } catch (e) {
+      // En el servidor, al actualizarlo, la copia anterior sigue unos segundos preguntándole a Telegram (409):
+      // se espera a que se apague en lugar de cerrar esta. En la PC, 409 es otra ventana abierta: se cierra.
+      const conflicto = e instanceof GrammyError && e.error_code === 409;
+      if (!enServidor || !conflicto || deteniendo || intento >= MAX_REINTENTOS_CONFLICTO) throw e;
+      log(`Telegram dice que hay otra copia del bot funcionando (409). Reintento en ${ESPERA_CONFLICTO_MS / 1000} s (${intento}/${MAX_REINTENTOS_CONFLICTO})…`);
+      await new Promise((r) => setTimeout(r, ESPERA_CONFLICTO_MS));
+    }
+  }
 }
+
+/** Reintentos ante otra copia del bot (409) en el servidor: 10 min como máximo; luego el servidor lo reinicia. */
+const ESPERA_CONFLICTO_MS = 10_000;
+const MAX_REINTENTOS_CONFLICTO = 60;

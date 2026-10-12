@@ -102,6 +102,18 @@ npm run validar -- ./comprobante.jpg --cuenta BANORTE
 npm run extraer -- ./comprobante.jpg                 # solo la lectura de la imagen
 ```
 
+## Desplegar en Render
+
+El repositorio trae un `Dockerfile` (con Chromium para la foto de Banxico) y un `render.yaml`.
+
+1. Sube el proyecto a un repositorio **privado** de GitHub (`config.ts` tiene los números de cuenta). El `.env`, `data/` y las carpetas de comprobantes no se suben.
+2. En Render: **New → Blueprint**, elige el repositorio y escribe las claves que pide (cópialas de tu `.env`). Si en tu `.env` cambiaste `NVIDIA_MODEL`, `NVIDIA_MODEL_RESPALDO` o `GEMINI_MODEL`, agrégalas también en *Environment*.
+3. **Apaga el bot de la PC**: Telegram solo permite una copia a la vez. Si las dos corren, la de la PC se cierra con el aviso del 409.
+4. En los *Logs* de Render debe aparecer `Bot @… en línea` y **`Banxico responde desde este servidor`**. Si dice que Banxico **no** responde, Banxico está bloqueando la IP del servidor: el bot no podrá validar desde ahí.
+5. El plan gratuito se apaga tras 15 min sin visitas (Telegram no cuenta). Para que no se duerma, un monitor como [cron-job.org](https://cron-job.org) o [UptimeRobot](https://uptimerobot.com) debe visitar la dirección del servicio (`https://….onrender.com/`) cada 5–10 min: responde `ok: el bot está funcionando`.
+
+Con el plan gratuito (0.1 CPU, 512 MB): el OCR y la foto tardan más que en la PC, el navegador se cierra después de cada foto para ahorrar memoria y **`data/` se borra en cada reinicio o actualización** (se pierden la cola guardada, los catálogos de Banxico guardados y la referencia aprendida de BBVA; el bot los vuelve a pedir o aprender). Cada `git push` a la rama del servicio lo actualiza solo; mientras la copia vieja se apaga, la nueva espera (reintenta el 409 cada 10 s).
+
 ## Dónde quedan los datos
 
 - `data/usados.json`: ya no se usa. Con `REGLAS.bloquearDuplicados = false` (en `src/config.ts`) el bot no guarda ni revisa los pagos ya validados. Si un día se vuelve a poner en `true`, el archivo vuelve a impedir validar dos veces el mismo pago.

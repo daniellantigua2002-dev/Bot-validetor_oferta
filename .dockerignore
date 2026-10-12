@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+.cache
+.env
+.git
+tests
+scripts
+docs
+Imagenes de prueba
+Comprobnates de papel
+*.log
