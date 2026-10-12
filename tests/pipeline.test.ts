@@ -704,24 +704,30 @@ describe("cuenta visible que no es nuestra, con clave de rastreo: antes de recha
     expect(llamadas.busquedas[0]!.maxFechas).toBeUndefined();
   });
 
-  it("el comprobante no dice el banco destino: se prueban nuestras cuentas rápido (solo la clave, 2 fechas)", async () => {
-    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874" }, busquedas: [NO_ENCONTRADO, VALIDADO] });
-    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
-    expect(r.codigo).toBe("VALIDADO");
-    expect(llamadas.busquedas.map((b) => b.coincidencia.cuenta.banco)).toEqual(["BANORTE", "INBURSA"]);
-    expect(llamadas.busquedas.every((b) => b.soloClave === true && b.maxFechas === 2)).toBe(true);
-  });
-
-  it("ninguna de nuestras cuentas lo tiene: cuentas incorrectas, con las consultas hechas", async () => {
-    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874" }, busquedas: [SIN_PAGO] });
+  it("el comprobante no dice el banco destino: cuentas incorrectas, sin probar nuestras 4 cuentas (regla del usuario, 11-oct)", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874", bancoDestino: null } });
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
     expect(r).toMatchObject({ codigo: "CUENTA_INCORRECTA", mensaje: MENSAJES.CUENTA_INCORRECTA });
-    expect(llamadas.busquedas).toHaveLength(4);
-    expect(r.intentos).toHaveLength(4);
+    expect(llamadas.busquedas).toHaveLength(0);
   });
 
-  it("Banxico tiene la clave con otra cuenta: lo dice y deja de probar", async () => {
-    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874" }, busquedas: [A_OTRA_CUENTA] });
+  it("dice otro banco (Santander): cuentas incorrectas, sin consultar", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874", bancoDestino: "Santander" } });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(r.codigo).toBe("CUENTA_INCORRECTA");
+    expect(llamadas.busquedas).toHaveLength(0);
+  });
+
+  it("nuestra cuenta de ese banco no lo tiene: cuentas incorrectas, con las consultas hechas", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874", bancoDestino: "Banorte" }, busquedas: [SIN_PAGO] });
+    const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
+    expect(r).toMatchObject({ codigo: "CUENTA_INCORRECTA", mensaje: MENSAJES.CUENTA_INCORRECTA });
+    expect(llamadas.busquedas).toHaveLength(1);
+    expect(r.intentos).toHaveLength(1);
+  });
+
+  it("Banxico tiene la clave con otra cuenta: lo dice", async () => {
+    const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1874", bancoDestino: "Banorte" }, busquedas: [A_OTRA_CUENTA] });
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
     expect(r).toMatchObject({ codigo: "CUENTA_INCORRECTA", mensaje: A_OTRA_CUENTA.mensaje });
     expect(llamadas.busquedas).toHaveLength(1);

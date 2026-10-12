@@ -197,13 +197,13 @@ function bancoDestinoAjeno(bancoDestino: string | null | undefined): ClaveBanco 
 
 /**
  * Nuestras cuentas en las que vale la pena buscar en Banxico un pago cuya cuenta visible no es nuestra
- * (puede estar mal leída): la del banco destino si es uno de los nuestros; si el comprobante no dice el
- * banco destino, todas; si dice otro banco, ninguna (el pago fue a ese banco).
+ * (puede estar mal leída): la del banco destino si es uno de los nuestros (se sabe el banco). Si el
+ * comprobante no dice el banco destino, o dice otro, ninguna (regla del usuario, 11-oct: si se tiene la
+ * cuenta, no se prueban otras).
  */
 export function cuentasDelBancoDestino(bancoDestino: string | null | undefined): CuentaDestino[] {
-  if (!bancoDestino?.trim()) return [...CUENTAS_DESTINO];
   const banco = resolverBanco(bancoDestino);
-  return CUENTAS_DESTINO.filter((c) => c.banco === banco);
+  return banco ? CUENTAS_DESTINO.filter((c) => c.banco === banco) : [];
 }
 
 // --- Utilidades -----------------------------------------------------------------------

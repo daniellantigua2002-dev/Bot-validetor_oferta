@@ -219,9 +219,9 @@ describe("cuentasDelBancoDestino: dónde buscar en Banxico un pago cuya cuenta v
     expect(cuentasDelBancoDestino("Citibanamex").map((c) => c.banco)).toEqual(["BANAMEX"]);
   });
 
-  it("todas si el comprobante no dice el banco destino; ninguna si es otro banco", () => {
-    expect(cuentasDelBancoDestino(null)).toHaveLength(CUENTAS_DESTINO.length);
-    expect(cuentasDelBancoDestino("  ")).toHaveLength(CUENTAS_DESTINO.length);
+  it("ninguna si el comprobante no dice el banco destino o si es otro banco (regla del usuario, 11-oct)", () => {
+    expect(cuentasDelBancoDestino(null)).toEqual([]);
+    expect(cuentasDelBancoDestino("  ")).toEqual([]);
     expect(cuentasDelBancoDestino("Santander")).toEqual([]);
   });
 });

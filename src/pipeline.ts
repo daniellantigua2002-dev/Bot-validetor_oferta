@@ -230,8 +230,8 @@ interface Verificacion {
  * - mismo banco, pero con clave de rastreo: una transferencia entre cuentas del mismo banco no pasa por SPEI
  *   y no trae clave, así que el banco emisor pudo leerse mal; se prueban los otros bancos que indican las
  *   señales y, si ninguno aparece, sí es del mismo banco;
- * - cuenta que no es nuestra, con clave: pudo leerse mal; nuestra cuenta del banco destino (todas si el
- *   comprobante no dice el banco destino; ninguna si es otro banco);
+ * - cuenta que no es nuestra, con clave: pudo leerse mal; nuestra cuenta del banco destino si es uno de los
+ *   nuestros (ninguna si el comprobante no dice el banco destino o es otro banco);
  * - cuenta que no se ve ni se pudo deducir, con clave: nuestras cuentas posibles, antes de preguntar.
  * No se cambia lo que la persona eligió con los botones o escribió en la nota.
  */
