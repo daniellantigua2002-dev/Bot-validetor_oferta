@@ -108,7 +108,7 @@ tipoCriterio=T&fecha=08-10-2026&criterio=SPIN-20261008200443959PNEB9&emisor=9072
 | `criterio` | Clave de rastreo: hasta 30 caracteres ASCII. Referencia: hasta 7 dígitos. | ⚠️ **La clave distingue mayúsculas de minúsculas** (ver 2.3). |
 | `emisor` | Código del catálogo, por ejemplo `40012` | Debe ser distinto de `receptor`. |
 | `receptor` | Código del catálogo | Si es igual al emisor, Banxico responde con un error. |
-| `cuenta` | Solo dígitos. CLABE = 18, tarjeta de débito = 16, celular = 10. | Se compara **exacta**: un dígito distinto da "no encontrado". |
+| `cuenta` | Solo dígitos. CLABE = 18, tarjeta de débito = 16, celular = 10. También el **número de cuenta** del banco (7, 10 u 11 dígitos): el 12-oct Banxico tuvo un pago BBVA → Banorte con la cuenta `1000473306`, y el 13-oct, con cuentas de 7 (Banamex), 10 (Banorte) y 11 dígitos (BanCoppel, Inbursa), respondió "Operación no encontrada" normal (no rechaza el largo). | Se compara **exacta**: un dígito distinto da "no encontrado". |
 | `receptorParticipante` | `0` = "Pago a banco" **desmarcado** · `1` = marcado (la cuenta pasa a ser la cuenta ordenante) | Siempre enviar `0`. |
 | `monto` | `^\d*\.?\d{0,2}$`: sin `$` ni comas, por ejemplo `1032.00` | Se compara **exacto**: $401 en lugar de $400 da "no encontrado". |
 | `captcha` | `c` | **Siempre** enviarlo con `c` (ver la sección 5). |

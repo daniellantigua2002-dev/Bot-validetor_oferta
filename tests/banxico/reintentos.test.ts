@@ -596,11 +596,13 @@ describe("comprobante nocturno (desde REGLAS.horaInicioNocturno)", () => {
     expect(fechasAIntentar("2026-10-08", AHORA, { nocturno: true })).toEqual(["2026-10-08", "2026-10-09", "2026-10-07", "2026-10-06"]);
   });
 
-  it("nocturno de hoy que no aparece → COMPROBANTE_NOCTURNO (valídalo mañana), sin buscar días anteriores", async () => {
+  it("nocturno de hoy que no aparece → 'vuelve a enviarlo en un rato', ya no 'valídalo mañana' (13-oct), sin buscar días anteriores", async () => {
     const { deps, consultas } = banxicoFalso([]);
     // 23:15 de CDMX del 09 = 05:15 UTC del 10: la clave de Spin lleva la misma fecha que el comprobante.
     const r = await buscarEnBanxico(entrada({ fecha: "2026-10-09", hora: "23:15:00", claveRastreo: "SPIN-20261010051500959PNEB9" }), deps);
-    expect(r).toMatchObject({ estado: "COMPROBANTE_NOCTURNO", mensaje: MENSAJES.COMPROBANTE_NOCTURNO });
+    expect(r.estado).toBe("COMPROBANTE_NOCTURNO");
+    expect(r.mensaje).toBe(`${MENSAJES.COMPROBANTE_NOCTURNO} Busqué el 09/10/2026 (3 consultas).`);
+    expect(r.mensaje).not.toMatch(/mañana/);
     expect(consultas.every((c) => c.fecha === "09-10-2026")).toBe(true);
     expect(consultas).toHaveLength(3); // clave, sondeo y referencia
   });
@@ -748,29 +750,53 @@ describe("lo aprendido de los comprobantes reales (Imagenes de prueba, confirmad
     expect(consultas.map((c) => `${c.criterio} ${c.cuenta}`)).toEqual([`4755884 ${BANORTE.clabe}`, `7841871 ${BANORTE.tarjeta}`]);
   });
 
-  it("cuenta deducida: sus números que sirven en SPEI (tarjeta y CLABE, sin el número suelto); vista: solo ese número", () => {
+  it("cuenta deducida: todos sus números (tarjeta, CLABE y cuenta, 13-oct); vista: solo ese número", () => {
     expect(cuentasAIntentar(coincidenciaTarjeta, true)).toEqual([
       [BANORTE.tarjeta, "tarjeta"],
       [BANORTE.clabe, "clabe"],
+      [BANORTE.cuenta, "cuenta"],
     ]);
-    // Inbursa no tiene tarjeta: solo la CLABE.
-    expect(cuentasAIntentar({ cuenta: INBURSA, tipo: "clabe", numero: INBURSA.clabe }, true)).toEqual([[INBURSA.clabe, "clabe"]]);
-    // Deducida por el número suelto (por ejemplo, la referencia de Azteca): tampoco se consulta con él.
+    // Inbursa no tiene tarjeta: CLABE y cuenta.
+    expect(cuentasAIntentar({ cuenta: INBURSA, tipo: "clabe", numero: INBURSA.clabe }, true)).toEqual([
+      [INBURSA.clabe, "clabe"],
+      [INBURSA.cuenta, "cuenta"],
+    ]);
+    // Deducida por el número de cuenta (por ejemplo, la referencia de Azteca): la cuenta va al final.
     expect(cuentasAIntentar({ cuenta: BANORTE, tipo: "cuenta", numero: BANORTE.cuenta }, true)).toEqual([
       [BANORTE.tarjeta, "tarjeta"],
       [BANORTE.clabe, "clabe"],
+      [BANORTE.cuenta, "cuenta"],
     ]);
     expect(cuentasAIntentar(coincidenciaTarjeta)).toEqual([[BANORTE.tarjeta, "tarjeta"]]);
     expect(cuentasAIntentar(coincidenciaClabe)).toEqual([[BANORTE.clabe, "clabe"]]);
   });
 
-  it("se ve el número de cuenta suelto (…3306): directo su CLABE, porque SPEI nunca lo usa", async () => {
+  it("se ve el número de cuenta (…3306): primero ese número y después su CLABE (13-oct: un pago también puede ir a la cuenta)", async () => {
     const numeroSuelto: CoincidenciaCuenta = { cuenta: BANORTE, tipo: "cuenta", numero: BANORTE.cuenta };
-    expect(cuentasAIntentar(numeroSuelto)).toEqual([[BANORTE.clabe, "clabe"]]);
+    expect(cuentasAIntentar(numeroSuelto)).toEqual([
+      [BANORTE.cuenta, "cuenta"],
+      [BANORTE.clabe, "clabe"],
+    ]);
+    // También en los otros bancos, aunque la cuenta no tenga 10 dígitos (Banamex, 7): la cuenta y después la CLABE.
+    const [, , BANAMEX] = CUENTAS_DESTINO;
+    expect(cuentasAIntentar({ cuenta: BANAMEX, tipo: "cuenta", numero: BANAMEX.cuenta })).toEqual([
+      [BANAMEX.cuenta, "cuenta"],
+      [BANAMEX.clabe, "clabe"],
+    ]);
+    // Si el pago fue a la CLABE, también se valida: la clave existe ese día y se prueba la CLABE.
     const { deps, consultas } = banxicoFalso([SPIN_BANORTE]); // a la CLABE
     const r = await buscarEnBanxico(entrada({ cuentaDestino: "3306" }, { coincidencia: numeroSuelto }), deps);
     expect(r.estado).toBe("VALIDADO");
-    expect(resumen(consultas)).toEqual([`08-10-2026 T ${BANORTE.clabe} 400.00`]);
+    expect(resumen(consultas)).toEqual([
+      `08-10-2026 T ${BANORTE.cuenta} 400.00`,
+      "08-10-2026 T - -",
+      `08-10-2026 T ${BANORTE.clabe} 400.00`,
+    ]);
+    // Y si fue al número de cuenta, a la primera.
+    const aLaCuenta = banxicoFalso([{ ...SPIN_BANORTE, cuenta: BANORTE.cuenta }]);
+    const r2 = await buscarEnBanxico(entrada({ cuentaDestino: "3306" }, { coincidencia: numeroSuelto }), aLaCuenta.deps);
+    expect(r2.estado).toBe("VALIDADO");
+    expect(aLaCuenta.consultas).toHaveLength(1);
   });
 
   it("clave cortada por la imagen: vale el pago cuya clave empieza igual", async () => {

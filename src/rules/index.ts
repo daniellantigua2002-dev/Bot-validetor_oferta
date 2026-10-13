@@ -36,7 +36,13 @@ export const MENSAJES = {
   REQUIERE_CONFIRMACION_BANCO: "¿Desde qué banco se hizo la transferencia?",
   MISMO_BANCO: "Este comprobante no se valida: el banco emisor y el de destino coinciden",
   FECHA_FUTURA: "Valida este comprobante en 1 o 2 días",
-  COMPROBANTE_NOCTURNO: "Comprobante nocturno: Banxico lo registra con la fecha del día siguiente. Valídalo mañana.",
+  // La fecha del comprobante es la de mañana (BBVA de noche la imprime así) y el pago no apareció en los días que ya
+  // pasaron. Pedido del usuario (13-oct): después de las consultas normales, "valida mañana".
+  FECHA_MANANA: "Valida este comprobante mañana",
+  // Pago de hoy, de noche, que todavía no aparece. Hasta el 13-oct decía "Banxico lo registra con la fecha del día
+  // siguiente. Valídalo mañana", pero el 12-oct BanCoppel (18:11) y STP (18:07) aparecieron con la fecha de ese día:
+  // el banco los envió con retraso.
+  COMPROBANTE_NOCTURNO: "Banxico todavía no tiene este pago: algunos bancos lo envían con retraso. Vuelve a enviarlo en 15 a 30 minutos.",
 } as const;
 
 /** ¿El comprobante es de noche? (desde REGLAS.horaInicioNocturno; "HH:mm:ss" se compara como texto). */

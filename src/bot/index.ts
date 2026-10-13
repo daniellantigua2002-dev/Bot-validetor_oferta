@@ -56,6 +56,7 @@ import {
   renderizarProgreso,
   respuestaFinal,
   resumenIntentos,
+  resumenLectura,
   TEXTO_BANXICO_LENTO,
   TEXTO_REANUDANDO,
   TEXTO_TIEMPO_AGOTADO,
@@ -291,8 +292,9 @@ export function crearBot(
         `${r.cuentaPorBeneficiario ? `, por el beneficiario: "${r.cuentaPorBeneficiario.beneficiario}" es titular de nuestra cuenta ${r.cuentaPorBeneficiario.banco}` : ""}` +
         `${r.ruta ? `, ruta ${r.ruta}` : ""})`,
     );
-    // El detalle de cada consulta no va al grupo (allí solo el resumen): queda aquí.
-    if (r.codigo !== "VALIDADO" && r.intentos.length) log(`Consultas a Banxico:\n${resumenIntentos(r)}`);
+    // El detalle de cada consulta no va al grupo (allí solo el resumen): queda aquí, con lo que se leyó.
+    if (r.codigo !== "VALIDADO") log(`Usuario ${trabajo.usuario}: leído ${resumenLectura(r)}`);
+    if (r.codigo !== "VALIDADO" && r.intentos.length) log(`Consultas a Banxico:\n${resumenIntentos(r, { detalle: true })}`);
     await registrarEstadoBanxico(api, banxicoRespondio(r));
   }
 

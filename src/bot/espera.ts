@@ -1,7 +1,8 @@
 /**
  * Comprobantes que se vuelven a revisar solos, en vez de responder de inmediato que no se encontró:
  * - RECIENTE: el pago es de hace pocos minutos y Banxico todavía no lo publica (los bancos avisan que
- *   tarda hasta 5 o 10 minutos). Se busca otra vez a los 5 minutos (solo hoy) y a los 10 (en todas las fechas).
+ *   tarda hasta 5 o 10 minutos, y el 12-oct BanCoppel lo envió 9 minutos tarde). Se busca otra vez a los 5 y
+ *   a los 10 minutos (solo hoy) y a los 15 (en todas las fechas).
  * - BANXICO: Banxico no respondió (o pidió captcha). El vigía (vigia.ts) lo revisa con una sola petición
  *   cada 3 minutos para todos los que esperan; cuando responde, vuelven a la cola. Como mucho 1 hora.
  */
@@ -25,7 +26,8 @@ export interface Espera {
 }
 
 export const ESPERA_PAGO_RECIENTE_MS = 5 * 60_000;
-export const MAX_REINTENTOS_RECIENTE = 2;
+/** 3 desde el 13-oct (antes 2): el BanCoppel del 12-oct (18:11) llegó a Banxico a las 18:21 y a las 18:23 aún no salía. */
+export const MAX_REINTENTOS_RECIENTE = 3;
 export const ESPERA_BANXICO_MS = 3 * 60_000;
 export const MAX_ESPERA_BANXICO_MS = 60 * 60_000;
 /**
@@ -44,7 +46,9 @@ export function decidirEspera(
   ahora: Date,
 ): Espera | null {
   const momento = ahora.getTime();
-  if (r.codigo === "NO_ENCONTRADO" || r.codigo === "COMPROBANTE_NOCTURNO") {
+  // FECHA_FUTURA también: un BBVA de noche (fecha de mañana) que no aparece ahora responde "valida mañana" (13-oct),
+  // pero si el pago es de hace minutos se sigue revisando solo, como antes.
+  if (r.codigo === "NO_ENCONTRADO" || r.codigo === "COMPROBANTE_NOCTURNO" || r.codigo === "FECHA_FUTURA") {
     // Lo "reciente" se decide en el primer intento; después se completan los reintentos.
     const sigue = previa?.motivo === "RECIENTE" ? previa.reintentos < MAX_REINTENTOS_RECIENTE : !previa && !!r.normalizados && esPagoReciente(r.normalizados, ahora);
     if (!sigue) return null;

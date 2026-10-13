@@ -55,13 +55,21 @@ describe("decidirEspera", () => {
     cuentaDestino: "1871",
   };
 
-  it("pago reciente no encontrado: se revisa otra vez en 5 minutos, hasta 2 veces", () => {
+  it("pago reciente no encontrado: se revisa otra vez cada 5 minutos, hasta 3 veces (5, 10 y 15 min; 13-oct)", () => {
     const primera = decidirEspera(noEncontrado("17:25"), undefined, AHORA);
     expect(primera).toEqual({ motivo: "RECIENTE", reintentos: 1, desde: momento, proxima: momento + ESPERA_PAGO_RECIENTE_MS });
-    // En el reintento ya no es "reciente" por la hora, pero se completan los 2 reintentos.
+    // En el reintento ya no es "reciente" por la hora, pero se completan los 3 reintentos.
     const segunda = decidirEspera(noEncontrado("17:25"), primera!, new Date(momento + 20 * 60_000));
     expect(segunda).toMatchObject({ motivo: "RECIENTE", reintentos: 2, desde: momento });
-    expect(decidirEspera(noEncontrado("17:25"), segunda!, AHORA)).toBeNull();
+    const tercera = decidirEspera(noEncontrado("17:25"), segunda!, AHORA);
+    expect(tercera).toMatchObject({ motivo: "RECIENTE", reintentos: 3, desde: momento });
+    expect(decidirEspera(noEncontrado("17:25"), tercera!, AHORA)).toBeNull();
+  });
+
+  it("'valida mañana' (fecha de mañana) de un pago de hace minutos también se revisa solo", () => {
+    const manana = { codigo: "FECHA_FUTURA" as const, normalizados: { ...base, fecha: "2026-10-10", hora: "17:25" } };
+    expect(decidirEspera(manana, undefined, AHORA)).toMatchObject({ motivo: "RECIENTE", reintentos: 1 });
+    expect(decidirEspera({ ...manana, normalizados: { ...manana.normalizados, hora: "10:00" } }, undefined, AHORA)).toBeNull();
   });
 
   it("un pago viejo no encontrado se responde ya", () => {

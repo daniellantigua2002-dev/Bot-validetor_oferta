@@ -33,6 +33,7 @@ import { join } from "node:path";
 import { BANCOS, BANXICO, REGLAS, ZONA_HORARIA, type DefinicionBanco } from "../config.js";
 import {
   describirFechas,
+  detectarBancoPorClave,
   fechaDesdeClave,
   fechaLegible,
   fechaParaBanxico,
@@ -161,24 +162,28 @@ export function fechasAIntentar(fecha: string | null, ahora: Date, opciones: Opc
   return plan.slice(0, MAX_FECHAS);
 }
 
-/** Sin el número de cuenta suelto: SPEI solo acepta CLABE, tarjeta o celular, así que Banxico nunca lo tiene. */
-const ORDEN_CUENTA_DEDUCIDA: TipoCuenta[] = ["tarjeta", "clabe"];
+/**
+ * Si no se vio la cuenta, todos sus números, el número de cuenta al final. 13-oct: el usuario confirma que un pago
+ * también puede ir al número de cuenta, en los 4 bancos; y Banxico acepta consultar con uno de 7, 10 u 11 dígitos
+ * (responde "Operación no encontrada" normal, sin error: prueba del 13-oct).
+ */
+const ORDEN_CUENTA_DEDUCIDA: TipoCuenta[] = ["tarjeta", "clabe", "cuenta"];
 
 /**
  * Números de nuestra cuenta a consultar (regla del usuario, 11-oct: si se tiene la cuenta, solo esa; si solo
- * se sabe el banco, todos sus números):
- * - la cuenta se vio en el comprobante: solo ese número. En los comprobantes reales, Banxico siempre tuvo el
- *   número que se veía (tarjeta → tarjeta, CLABE → CLABE). Si se ve el número de cuenta suelto, su CLABE:
- *   SPEI solo acepta CLABE, tarjeta o celular, así que Banxico nunca tiene el número suelto;
- * - no se vio (se dedujo del banco o la eligió la persona): todos sus números que sirven en SPEI (tarjeta y
- *   CLABE), empezando por el de la coincidencia.
+ * se sabe el banco, todos sus números; 13-oct: un pago puede ir a la tarjeta, a la CLABE o al número de cuenta):
+ * - la cuenta se vio en el comprobante: ese número. En los comprobantes reales, Banxico siempre tuvo el número que
+ *   se veía (tarjeta → tarjeta, CLABE → CLABE, cuenta → cuenta: 12-oct, …3306 → 1000473306). Si se ve el número de
+ *   cuenta, también su CLABE, después;
+ * - no se vio (se dedujo del banco o la eligió la persona): todos sus números (tarjeta, CLABE y número de cuenta),
+ *   empezando por el de la coincidencia. Inbursa no tiene tarjeta: CLABE y cuenta.
  */
 export function cuentasAIntentar(c: CoincidenciaCuenta, deducida = false): [string, TipoCuenta][] {
   const numeros = c.cuenta as Partial<Record<TipoCuenta, string>>;
   const tipos: TipoCuenta[] = deducida
-    ? [c.tipo, ...ORDEN_CUENTA_DEDUCIDA].filter((t) => t !== "cuenta")
+    ? [...(c.tipo === "cuenta" ? [] : [c.tipo]), ...ORDEN_CUENTA_DEDUCIDA]
     : c.tipo === "cuenta"
-      ? ["clabe"]
+      ? ["cuenta", "clabe"]
       : [c.tipo];
   const lista: [string, TipoCuenta][] = [];
   for (const tipo of tipos) {
@@ -199,6 +204,18 @@ export function claveDudosa(n: Pick<DatosNormalizados, "claveRastreo" | "origenC
   if (n.origenClave === "mercado_pago") return true;
   const largos = banco.clave ? (BANCOS[banco.clave] as DefinicionBanco).largosClave : undefined;
   return !!largos && !largos.includes(n.claveRastreo.length);
+}
+
+/**
+ * ¿La clave leída es más corta que las de su banco? (BBVA: 24 caracteres; "MBAN010026101300585519" mide 22.) Suele
+ * ser la imagen que la cortó. Cuántos caracteres se leyeron y cuántos tiene la clave del banco, o null.
+ */
+export function claveCortada(n: Pick<DatosNormalizados, "claveRastreo" | "origenClave">, banco: BancoEmisor): { leidos: number; largo: number } | null {
+  if (!n.claveRastreo || n.origenClave !== "comprobante") return null;
+  const largos = banco.clave ? (BANCOS[banco.clave] as DefinicionBanco).largosClave : undefined;
+  if (!largos?.length) return null;
+  const largo = Math.min(...largos);
+  return n.claveRastreo.length < largo ? { leidos: n.claveRastreo.length, largo } : null;
 }
 
 /** Identifica una consulta concreta (para no repetirla). */
@@ -348,6 +365,8 @@ export interface ResultadoBusqueda {
   incompleta?: boolean;
   /** Detección temprana (MONTO_NO_COINCIDE, CUENTA_INCORRECTA): fecha (yyyy-MM-dd) en la que Banxico tiene la clave. */
   fechaClave?: string;
+  /** La clave leída es más corta que las de su banco (ver claveCortada): el mensaje ya pide la captura completa. */
+  claveCortada?: boolean;
 }
 
 export interface DependenciasBusqueda {
@@ -397,6 +416,12 @@ export interface EntradaBusqueda {
   soloClave?: boolean;
   /** Fecha (yyyy-MM-dd) en la que ya se sabe que Banxico tiene la clave: ahí no se vuelve a preguntar. */
   claveExisteEn?: string;
+  /**
+   * La clave leída no aparece en el texto del OCR: la IA pudo tomar otro dato por la clave (12-oct: el folio de un
+   * comprobante de Plata, que no trae clave). Si además Banxico dice que esa clave no existe ese día, el pago que
+   * trae la referencia se elige como en un comprobante sin clave (ver intentar).
+   */
+  claveSinRespaldo?: boolean;
 }
 
 /**
@@ -415,6 +440,13 @@ const DEPENDENCIAS: DependenciasBusqueda = {
 
 /** Lo que se le dice a la persona mientras Banxico pide captcha. */
 const TEXTO_LIMITANDO = "Banxico está limitando las consultas (pide captcha); intenta de nuevo en unos minutos.";
+
+/** Estados de un pago que el banco regresó (el dinero no llegó). */
+const DEVUELTOS: ReadonlySet<EstadoPago> = new Set(["DEVUELTO", "EN_PROCESO_DEVOLUCION", "RETORNADO"]);
+
+/** El principio del texto de una página (sin etiquetas), para anotar en la consola qué mandó Banxico. */
+const inicioDelTexto = (html: string) =>
+  html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || "(vacía)";
 
 export interface SaludBanxico {
   ok: boolean;
@@ -548,16 +580,33 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
   function sinEncontrar(incompleta = false): ResultadoBusqueda {
     const total = intentos.filter((i) => i.resultado !== "OMITIDO").length;
     const busque = revisadas.length ? `busqué ${describirFechas(revisadas)} (${total} consultas)` : "no se pudo consultar ninguna fecha";
-    const base = { intentos, fechasRevisadas: [...revisadas], ...(incompleta ? { incompleta } : {}) };
+    const cortada = claveCortada(n, bancoEmisor);
+    const base = { intentos, fechasRevisadas: [...revisadas], ...(incompleta ? { incompleta } : {}), ...(cortada ? { claveCortada: true } : {}) };
     const corte = incompleta ? " Se acabó el tiempo antes de revisar todas las combinaciones." : "";
+    // Clave cortada por la imagen (pedido del usuario, 13-oct): se dice al final, cuando tampoco apareció con la referencia.
+    const conReferencia = intentos.some((i) => i.criterio === "REFERENCIA" && i.resultado !== "OMITIDO");
+    const avisoCortada = cortada
+      ? ` La clave de rastreo está incompleta: se leen ${cortada.leidos} de sus ${cortada.largo} caracteres (puede estar cortada en la imagen)` +
+        `${conReferencia ? " y con la referencia tampoco apareció" : ""}. Envía la captura completa o escribe la clave completa en la nota.`
+      : "";
+    // Fecha de mañana (BBVA de noche la imprime así): después de las consultas normales, "valida mañana" (pedido del
+    // usuario, 13-oct). Va antes que la de 1 o 2 días: también es una fecha posterior a hoy.
+    if (n.fecha && n.fecha === sumarDias(hoy, 1)) {
+      const mensaje = `${MENSAJES.FECHA_MANANA}: la fecha del comprobante (${fechaLegible(n.fecha)}) es la de mañana y el pago todavía no aparece en Banxico; ${busque}.${avisoCortada}${corte}`;
+      return { estado: "FECHA_FUTURA", mensaje, ...base };
+    }
     if (posterior && !malLeida) {
-      const mensaje = `${MENSAJES.FECHA_FUTURA}: la fecha del comprobante (${fechaLegible(n.fecha!)}) es posterior a hoy y el pago todavía no aparece en Banxico; ${busque}.`;
+      const mensaje = `${MENSAJES.FECHA_FUTURA}: la fecha del comprobante (${fechaLegible(n.fecha!)}) es posterior a hoy y el pago todavía no aparece en Banxico; ${busque}.${avisoCortada}`;
       return { estado: "FECHA_FUTURA", mensaje, ...base };
     }
     if (nocturno && n.fecha === hoy && !fechaSiguiente) {
-      return { estado: "COMPROBANTE_NOCTURNO", mensaje: MENSAJES.COMPROBANTE_NOCTURNO, ...base };
+      // Pago de hoy, de noche, que todavía no aparece: ya no se dice "valídalo mañana" (Banxico lo registra con la fecha
+      // del día del pago; el 12-oct BanCoppel 18:11 y STP 18:07 aparecieron así), sino que vuelva a enviarlo en un rato.
+      const mensaje = `${MENSAJES.COMPROBANTE_NOCTURNO} ${busque.charAt(0).toUpperCase()}${busque.slice(1)}.${avisoCortada}${corte}`;
+      return { estado: "COMPROBANTE_NOCTURNO", mensaje, ...base };
     }
-    const claveInexistente = !!n.claveRastreo && !incompleta && revisadas.length > 0 && revisadas.every((f) => claveEnFecha.get(f) === false);
+    // Con la clave cortada no se dice "Banxico no tiene ningún pago con la clave": el aviso explica por qué no aparece.
+    const claveInexistente = !cortada && !!n.claveRastreo && !incompleta && revisadas.length > 0 && revisadas.every((f) => claveEnFecha.get(f) === false);
     const motivo = claveInexistente
       ? `Banxico no tiene ningún pago con la clave de rastreo ${n.claveRastreo}: ${busque}.`
       : `No se encontró el pago en Banxico: ${busque}.`;
@@ -565,7 +614,7 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
     const varios = huboVarios
       ? " Varios pagos tienen una clave de rastreo parecida a la del comprobante; revisa que la clave se lea completa."
       : "";
-    return { estado: "NO_ENCONTRADO", mensaje: `${motivo}${fecha}${varios}${corte}`, ...base, ...(claveInexistente ? { claveInexistente } : {}) };
+    return { estado: "NO_ENCONTRADO", mensaje: `${motivo}${fecha}${varios}${avisoCortada}${corte}`, ...base, ...(claveInexistente ? { claveInexistente } : {}) };
   }
 
   /** ¿Banxico se está enfriando después de un captcha? Mientras dure no se le consulta. */
@@ -575,7 +624,7 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
    * Una consulta a valida.do con pausa previa. Si Banxico pide captcha no se insiste: empieza el
    * enfriamiento global y la búsqueda termina (el comprobante se revisa solo más tarde).
    */
-  async function consultar(consulta: ConsultaBanxico, base: IntentoBase): Promise<RespuestaBanxico | null | Fin> {
+  async function consultar(consulta: ConsultaBanxico, base: IntentoBase): Promise<RespuestaBanxico | Fin> {
     const pausa = consultasHechas === 0 ? 0 : REGLAS.pausaEntreConsultasMs;
     // No se empieza una consulta que no alcance a terminar antes del tiempo máximo.
     if (entrada.limite !== undefined && reloj() + pausa + MARGEN_LIMITE_MS > entrada.limite) return { fin: sinEncontrar(true) };
@@ -590,8 +639,17 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
       ultimoHtml = await deps.consultar(consulta);
       respuesta = parsearRespuesta(ultimoHtml);
     } catch (e) {
+      // Cualquier falla al consultar (sin red, tiempo agotado, HTTP 4xx o 5xx) es de Banxico, no del comprobante: la
+      // búsqueda termina como "Banxico no disponible" y el comprobante se revisa solo más tarde. Hasta el 13-oct solo
+      // la falla de red cortaba; un 403 (bloqueo) o un 429 (límite) seguía y terminaba en "no se encontró".
+      const motivo = e instanceof ErrorRedBanxico ? "Banxico no responde" : `Banxico respondió con un error (${(e as Error).message})`;
       registrar({ ...base, resultado: "ERROR_RED", detalle: (e as Error).message });
-      return e instanceof ErrorRedBanxico ? noDisponible("Banxico no responde; intenta de nuevo más tarde.") : null;
+      return noDisponible(`${motivo}; intenta de nuevo más tarde.`);
+    }
+    if (respuesta.tipo === "ERROR" && respuesta.desconocida) {
+      // Una página que no es la del CEP (bloqueo del firewall, mantenimiento): tampoco es un "no se encontró".
+      registrar({ ...base, resultado: "ERROR", detalle: `respuesta no reconocida: ${inicioDelTexto(ultimoHtml)}` });
+      return noDisponible("Banxico respondió una página que no es la del CEP (bloqueo o mantenimiento); intenta de nuevo más tarde.");
     }
     if (respuesta.tipo !== "CAPTCHA") return respuesta;
     deps.alCaptcha?.("consulta");
@@ -602,7 +660,6 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
   /** Consulta normal (con cuenta y monto). Devuelve Fin si la búsqueda termina, o si Banxico dijo "no encontrado". */
   async function intentar(consulta: ConsultaBanxico, base: IntentoBase, paso: PasoPlan): Promise<Fin | { noEncontrado: boolean }> {
     const respuesta = await consultar(consulta, base);
-    if (respuesta === null) return { noEncontrado: false };
     if ("fin" in respuesta) return respuesta;
     if (respuesta.tipo === "NO_ENCONTRADO") {
       registrar({ ...base, resultado: "NO_ENCONTRADO" });
@@ -613,7 +670,28 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
       return { noEncontrado: false };
     }
 
-    const eleccion = elegirPago(respuesta.pagos, n, paso, usados);
+    let eleccion = elegirPago(respuesta.pagos, n, paso, usados);
+    // La clave leída no existe en Banxico ese día (lo dijo la consulta con la clave sola), no aparece en el texto del
+    // comprobante, no tiene la forma de la clave de ningún banco (MBAN…, SPIN-…, …TRANSBPI…) y no está cortada: la IA
+    // tomó otro dato por la clave (12-oct: el folio "ad4ff015" de un comprobante de Plata, que no trae clave). Entre los
+    // pagos que trae la referencia se elige como en un comprobante sin clave. Si la clave se ve en la imagen o parece una
+    // clave real (aunque esté cortada), sigue mandando: no se toma otro pago con el mismo monto a la misma cuenta.
+    const claveFalsa =
+      eleccion.tipo === "ninguno" &&
+      paso.criterio === "REFERENCIA" &&
+      entrada.claveSinRespaldo === true &&
+      !!n.claveRastreo &&
+      !detectarBancoPorClave(n.claveRastreo) &&
+      !claveCortada(n, bancoEmisor) &&
+      claveEnFecha.get(isoDesdeBanxico(paso.fecha)) === false;
+    let porReferencia = "";
+    if (claveFalsa) {
+      const sinClave = elegirPago(respuesta.pagos, { ...n, claveRastreo: null }, paso, usados);
+      if (sinClave.tipo === "uno") {
+        eleccion = sinClave;
+        porReferencia = `; la clave leída (${n.claveRastreo}) no existe en Banxico ni se ve en la imagen: se eligió por la referencia`;
+      }
+    }
     if (eleccion.tipo === "ninguno") {
       registrar({ ...base, resultado: "NO_ENCONTRADO", detalle: eleccion.motivo });
       return { noEncontrado: false };
@@ -630,7 +708,7 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
     }
 
     const { pago } = eleccion;
-    registrar({ ...base, resultado: pago.estado, detalle: pago.claveRastreo ?? undefined });
+    registrar({ ...base, resultado: pago.estado, detalle: `${pago.claveRastreo ?? ""}${porReferencia}` || undefined });
     if (pago.estado === "LIQUIDADO" && pago.monto === monto) {
       return { fin: { estado: "VALIDADO", mensaje: "Pago validado en Banxico: Liquidado.", intentos, pago, consulta, html: ultimoHtml } };
     }
@@ -643,15 +721,19 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
    * Sondeo con la clave sola (o con la clave y el monto): ¿Banxico tiene un pago con esa clave?
    * existe = null si Banxico respondió con un error y no se sabe.
    */
-  async function sondear(consulta: ConsultaBanxico, base: IntentoBase, tipo: TipoSondeo): Promise<Fin | { existe: boolean | null }> {
+  async function sondear(
+    consulta: ConsultaBanxico,
+    base: IntentoBase,
+    tipo: TipoSondeo,
+  ): Promise<Fin | { existe: boolean | null; pago?: PagoBanxico; html?: string }> {
     const conSondeo = { ...base, sondeo: tipo };
     const respuesta = await consultar(consulta, conSondeo);
-    if (respuesta === null) return { existe: null };
     if ("fin" in respuesta) return respuesta;
     const etiqueta = tipo === "SIN_CUENTA_NI_MONTO" ? "sondeo solo con la clave" : `sondeo con la clave y el monto ${PESOS.format(Number(monto))}`;
     if (respuesta.tipo === "PAGOS") {
       registrar({ ...conSondeo, resultado: respuesta.pagos[0]?.estado ?? "LIQUIDADO", detalle: `${etiqueta}: la clave existe` });
-      return { existe: true };
+      // El pago que encontró (sin la fila de la cuenta, que no se envió) y su tabla, por si hay que mostrarla.
+      return { existe: true, pago: respuesta.pagos[0], html: ultimoHtml };
     }
     if (respuesta.tipo === "NO_ENCONTRADO") {
       registrar({ ...conSondeo, resultado: "NO_ENCONTRADO", detalle: `${etiqueta}: no aparece` });
@@ -747,6 +829,14 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
     if ("fin" in s) return s;
     const fechaClave = isoDesdeBanxico(fecha);
     if (s.existe === true) {
+      // La clave existe con ese monto pero no a nuestra cuenta. Si el banco la devolvió, eso es lo que se dice, con la
+      // foto de la tabla de Banxico: el dinero no llegó (12-oct: pagos a un número mal escrito que termina como el nuestro).
+      if (s.pago && DEVUELTOS.has(s.pago.estado)) {
+        const mensaje =
+          `El pago existe en Banxico pero su estado es "${NOMBRE_ESTADO[s.pago.estado]}": no fue a nuestra cuenta ` +
+          "(el número completo no es el nuestro) y el banco lo regresó, así que el dinero no llegó.";
+        return { fin: { estado: "NO_LIQUIDADO", mensaje, intentos, pago: s.pago, consulta, html: s.html, fechaClave } };
+      }
       return { fin: { estado: "CUENTA_INCORRECTA", mensaje: `${MENSAJES.CUENTA_INCORRECTA} (Banxico registra ese pago a otra cuenta).`, intentos, fechaClave } };
     }
     const mensaje =

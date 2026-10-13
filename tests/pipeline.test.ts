@@ -770,12 +770,15 @@ describe("cuenta leída que no es nuestra pero SE PARECE a uno de nuestros núme
     expect(tipos(llamadas.busquedas[0]!)).toEqual(["clabe"]);
   });
 
-  it("se parece al número de cuenta suelto de Banamex (…1617 ≈ 2461618): busca con su CLABE", async () => {
+  it("se parece al número de cuenta de Banamex (…1617 ≈ 2461618): busca con esa cuenta y después con su CLABE (13-oct)", async () => {
     const { deps, llamadas } = falsas({ datos: { cuentaDestino: "1617", bancoDestino: null } });
     await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
     const b = llamadas.busquedas[0]!;
     expect(b.coincidencia.cuenta.banco).toBe("BANAMEX");
-    expect(cuentasAIntentar(b.coincidencia, b.cuentaDeducida)).toEqual([["002180702124616185", "clabe"]]);
+    expect(cuentasAIntentar(b.coincidencia, b.cuentaDeducida)).toEqual([
+      ["2461618", "cuenta"],
+      ["002180702124616185", "clabe"],
+    ]);
   });
 
   it.each([
@@ -808,7 +811,8 @@ describe("cuenta leída que no es nuestra pero SE PARECE a uno de nuestros núme
     const { deps, llamadas } = falsas({ datos: { cuentaDestino: "4948", bancoDestino: null }, busquedas: [NO_ENCONTRADO, VALIDADO] });
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA }, deps);
     expect(r.codigo).toBe("VALIDADO");
-    expect(llamadas.busquedas.map((b) => tipos(b)[0])).toEqual(["tarjeta", "clabe"]); // la tarjeta …4988 y la CLABE de la cuenta …4942
+    // La tarjeta …4988 y la cuenta …4942 (después su CLABE, en la misma búsqueda).
+    expect(llamadas.busquedas.map((b) => tipos(b))).toEqual([["tarjeta"], ["cuenta", "clabe"]]);
     expect(llamadas.busquedas.every((b) => b.coincidencia.cuenta.banco === "BANCOPPEL" && b.soloClave === true && b.maxFechas === 2)).toBe(true);
   });
 

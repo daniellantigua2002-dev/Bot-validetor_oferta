@@ -120,6 +120,8 @@ export interface ResultadoValidacion {
   fechasRevisadas?: string[];
   /** La clave del comprobante no existe en Banxico en ninguna de las fechas revisadas. */
   claveInexistente?: boolean;
+  /** La clave leída es más corta que las de su banco (cortada por la imagen): el mensaje ya pide la captura completa. */
+  claveCortada?: boolean;
   /** La búsqueda se cortó porque se acababa el tiempo máximo. */
   busquedaIncompleta?: boolean;
   /** El monto leído no coincidía en Banxico y el pago apareció con otro de los montos leídos (el del OCR o el de la imagen). */
@@ -266,7 +268,7 @@ interface Verificacion {
 
 /**
  * Números nuestros que se parecen a la cuenta leída por la IA o por el OCR (buscarCuentasParecidas), sin
- * repetir: el número de cuenta suelto cuenta como su CLABE, que es con la que se busca.
+ * repetir: el número de cuenta y su CLABE son la misma opción (se busca con los dos, ver cuentasAIntentar).
  */
 export function numerosParecidos(extraccion: ResultadoExtraccion, n: DatosNormalizados): Parecida[] {
   const lecturas = [n.cuentaDestino];
@@ -501,6 +503,7 @@ export async function validarComprobante(
   // solo hoy. El bot lo vuelve a revisar a los 5 y 10 min, y la última revisión busca en todas las fechas.
   const soloHoy = !opciones.busquedaCompleta && esPagoReciente(normalizados, opciones.ahora ?? new Date());
   const maxFechas = opciones.maxFechas ?? (soloHoy ? 1 : undefined);
+  const sinRespaldo = claveSinRespaldo(extraccion, normalizados, opciones.nota);
   const busquedaCon = (aprobadas: ReglasAprobadas, extra: Partial<EntradaBusqueda> = {}): EntradaBusqueda => ({
     normalizados,
     coincidencia: aprobadas.coincidencia,
@@ -515,6 +518,7 @@ export async function validarComprobante(
     limite: opciones.limite,
     alIntentar,
     signal: opciones.signal,
+    ...(sinRespaldo ? { claveSinRespaldo: true } : {}),
     ...extra,
   });
 
@@ -580,6 +584,17 @@ export async function validarComprobante(
   const hecha = await buscarConSegundaOpinion(busquedaCon(reglas), montos, deps);
   tiempos.banxico = (tiempos.banxico ?? 0) + (Date.now() - t1);
   return terminar(await finalizar({ ...hecha, extraccion, reglas }, "normal", opciones, deps, tiempos));
+}
+
+/**
+ * ¿La clave que leyó la IA no aparece en el texto del OCR? Entonces pudo ser otro dato tomado por la clave (12-oct:
+ * el folio "ad4ff015" de un comprobante de Plata, que no trae clave). Solo se afirma si hay texto del OCR y la clave
+ * salió de la imagen (no de la nota ni del número de comprobante de Mercado Pago). Ver EntradaBusqueda.claveSinRespaldo.
+ */
+export function claveSinRespaldo(extraccion: ResultadoExtraccion, n: DatosNormalizados, nota: DatosNota | undefined): boolean {
+  if (!n.claveRastreo || n.origenClave !== "comprobante" || nota?.claveRastreo) return false;
+  if (extraccion.origen !== "nvidia" || !extraccion.textoOcr) return false;
+  return extraerDeTexto(extraccion.textoOcr).claveRastreo === null;
 }
 
 /**
@@ -710,6 +725,7 @@ async function finalizar(
     mensaje: busqueda.mensaje,
     fechasRevisadas: busqueda.fechasRevisadas,
     claveInexistente: busqueda.claveInexistente,
+    ...(busqueda.claveCortada ? { claveCortada: true } : {}),
     busquedaIncompleta: busqueda.incompleta,
   };
 

@@ -52,7 +52,7 @@ export const textoPlano = (html: string) =>
 /** El pago es muy reciente y Banxico todavía no lo publica. `hora`: "17:45" (CDMX). */
 export const textoEsperaPagoReciente = (hora: string, intento: number, de: number) =>
   `⏳ <b>Banxico todavía no publica este pago.</b>\n` +
-  `Los bancos tardan hasta 10 minutos en enviarlo. Lo vuelvo a revisar solo a las <b>${hora}</b> ` +
+  `Algunos bancos tardan hasta 15 minutos en enviarlo. Lo vuelvo a revisar solo a las <b>${hora}</b> ` +
   `(revisión ${intento} de ${de}). No hace falta volver a enviarlo.`;
 
 /** Banxico no responde: el comprobante queda guardado y se revisa solo. */
@@ -208,17 +208,34 @@ export function botonesCuenta(id: string, candidatas: readonly { clabe: string }
 
 /**
  * Las consultas hechas a Banxico, una por línea, para la consola del bot. En el grupo solo va el
- * resumen (qué fechas se revisaron y cuántas consultas), que ya trae el mensaje.
+ * resumen (qué fechas se revisaron y cuántas consultas), que ya trae el mensaje. Con `detalle`, también
+ * el número de referencia usado y el porqué de cada resultado (por ejemplo, un pago descartado por la clave).
  */
-export function resumenIntentos(r: Pick<ResultadoValidacion, "intentos">): string {
+export function resumenIntentos(r: Pick<ResultadoValidacion, "intentos">, { detalle = false }: { detalle?: boolean } = {}): string {
   return r.intentos
     .map((i) => {
-      const criterio = i.criterio === "CLAVE_RASTREO" ? "clave" : "referencia";
+      const criterio = i.criterio === "CLAVE_RASTREO" ? "clave" : detalle ? `referencia ${i.valorCriterio}` : "referencia";
       const cuenta = i.cuenta ? ` · …${i.cuenta.slice(-4)}` : "";
       const sondeo = i.sondeo === "SIN_CUENTA" ? " (clave y monto)" : i.sondeo ? " (solo clave)" : "";
-      return `• ${i.fecha} · ${criterio}${cuenta}${sondeo} → ${i.resultado.replace(/_/g, " ").toLowerCase()}`;
+      const porque = detalle && i.detalle ? ` (${i.detalle})` : "";
+      return `• ${i.fecha} · ${criterio}${cuenta}${sondeo} → ${i.resultado.replace(/_/g, " ").toLowerCase()}${porque}`;
     })
     .join("\n");
+}
+
+/**
+ * Datos leídos del comprobante, en una línea, para la consola del bot (no van al grupo). Con esto se sabe
+ * después qué clave, referencia y banco se usaron (el 12-oct no quedó en el log qué clave leyó la IA).
+ */
+export function resumenLectura(r: Pick<ResultadoValidacion, "normalizados" | "bancoEmisor" | "extraccion">): string {
+  const n = r.normalizados;
+  const banco = r.bancoEmisor ?? (r.extraccion ? { clave: r.extraccion.banco.banco, nombreLibre: r.extraccion.banco.nombreLibre } : null);
+  const emisor = banco?.clave ?? banco?.nombreLibre ?? "?";
+  if (!n) return `emisor=${emisor}`;
+  const campos = { clave: n.claveRastreo, ref: n.referencia, monto: n.monto, fecha: n.fecha, hora: n.hora, cuenta: n.cuentaDestino };
+  return `${Object.entries(campos)
+    .map(([nombre, valor]) => `${nombre}=${valor ?? "-"}`)
+    .join(" ")} emisor=${emisor}`;
 }
 
 /**
@@ -261,7 +278,8 @@ const EJEMPLO_FALTANTE: Record<string, string> = {
  */
 function sugerenciaSinDatos(r: ResultadoValidacion, nota: NotaLeida | undefined): string | null {
   const n = r.normalizados;
-  if (!n) return null;
+  // Con la clave cortada el mensaje ya dice qué hacer (la captura completa o la clave en la nota): no se sugiere la fecha.
+  if (!n || r.claveCortada) return null;
   const falta: string[] = [];
   const ejemplo: string[] = [];
   if (!n.fecha) {
@@ -301,9 +319,22 @@ function textoNota(r: ResultadoValidacion, nota: NotaLeida | undefined): string 
     if (ejemplo.length) lineas.push(`💡 Reenvía la foto escribiendo en la nota lo que falta, por ejemplo: <code>${ejemplo.join(", ")}</code>`);
     const sugerencia = r.codigo === "NO_ENCONTRADO" ? sugerenciaSinDatos(r, nota) : null;
     if (sugerencia) lineas.push(sugerencia);
+    // La IA no respondió y se leyó solo con el OCR: el rechazo puede ser por una mala lectura, no por el comprobante.
+    if (r.extraccion?.errorNvidia && RECHAZOS_POR_LECTURA.has(r.codigo)) {
+      lineas.push("⚠️ El servicio que lee los comprobantes no respondió y se leyó con un método más simple: si los datos de tu comprobante son correctos, envíalo de nuevo en unos minutos.");
+    }
   }
   return lineas.length ? `\n\n${lineas.join("\n")}` : "";
 }
+
+/** Rechazos que pueden venir de una mala lectura (cuando la IA no respondió y se leyó solo con el OCR). */
+const RECHAZOS_POR_LECTURA: ReadonlySet<ResultadoValidacion["codigo"]> = new Set([
+  "NO_ES_COMPROBANTE",
+  "DATOS_INSUFICIENTES",
+  "CUENTA_INCORRECTA",
+  "NO_ENCONTRADO",
+  "MONTO_NO_COINCIDE",
+]);
 
 /**
  * Respuesta final según el resultado. `id` identifica la pregunta pendiente (confirmaciones),

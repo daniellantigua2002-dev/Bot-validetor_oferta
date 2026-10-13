@@ -9,7 +9,8 @@ export type RespuestaBanxico =
   | { tipo: "NO_ENCONTRADO"; mensaje: string }
   | { tipo: "CEP_DISPONIBLE" }
   | { tipo: "CAPTCHA"; mensaje: string }
-  | { tipo: "ERROR"; mensaje: string };
+  /** desconocida: no es una respuesta del CEP (página de bloqueo o de mantenimiento), no un error con mensaje de Banxico. */
+  | { tipo: "ERROR"; mensaje: string; desconocida?: true };
 
 const ENTIDADES: Record<string, string> = {
   aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú",
@@ -150,5 +151,5 @@ export function parsearRespuesta(html: string): RespuestaBanxico {
     return { tipo: "NO_ENCONTRADO", mensaje: texto(strong ?? "Operación no encontrada") };
   }
 
-  return { tipo: "ERROR", mensaje: "Respuesta de Banxico no reconocida" };
+  return { tipo: "ERROR", mensaje: "Respuesta de Banxico no reconocida", desconocida: true };
 }

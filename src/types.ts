@@ -60,7 +60,7 @@ export type CodigoResultado =
   | "NO_LIQUIDADO"
   /** La clave existe en Banxico pero con otro monto (comprobante alterado). */
   | "MONTO_NO_COINCIDE"
-  /** Pago de noche de hoy: Banxico lo registra con la fecha del día siguiente. */
+  /** Pago de noche de hoy que todavía no aparece en Banxico (algunos bancos lo envían con retraso). */
   | "COMPROBANTE_NOCTURNO"
   | "NO_ENCONTRADO"
   /** Banxico pidió captcha o no respondió tras los reintentos. */

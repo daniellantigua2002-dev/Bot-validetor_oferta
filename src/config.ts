@@ -68,9 +68,10 @@ export const REGLAS = {
   pausaEntreConsultasMs: 6000,
   // Ruta rápida: con los datos del OCR (1–2 s) se hace una consulta a Banxico sin esperar a la IA.
   rutaRapida: true,
-  // Comprobante "nocturno": desde esta hora Banxico puede registrarlo con la fecha de operación del día
-  // siguiente. Visto en BBVA (10-oct): Banxico lo registra con la fecha del día del pago y es BBVA el que
-  // imprime la del día siguiente ("09 octubre 21:08" → Banxico 08/10). Compartamos (21:22) imprime el mismo día.
+  // Comprobante "nocturno": desde esta hora, si es de días anteriores, también se prueba el día siguiente. En todos
+  // los casos reales Banxico lo registró con la fecha del día del pago: BBVA imprime la del día siguiente ("09 octubre
+  // 21:08" → Banxico 08/10); Compartamos (21:22), BanCoppel (18:11) y STP (18:07, 12-oct) aparecieron con la del mismo
+  // día. Por eso, desde el 13-oct, uno de hoy que no aparece ya no recibe "valídalo mañana" sino "vuelve a enviarlo".
   horaInicioNocturno: "18:00",
   // BBVA de noche: desde esta hora (impresa) se busca primero el día anterior a la fecha impresa; entre
   // horaInicioNocturno y esta, primero la impresa. El celular puede ir 1 h adelante: "18:26" fue un pago de
