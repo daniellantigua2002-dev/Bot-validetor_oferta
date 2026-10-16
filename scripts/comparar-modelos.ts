@@ -2,7 +2,7 @@
  * Compara modelos de visión de NVIDIA con comprobantes sintéticos (Spin, Klar en modo oscuro, Azteca).
  * Útil si NVIDIA retira el modelo configurado. Ver modelos disponibles: GET /v1/models.
  *
- * Uso: npm run comparar-modelos -- moonshotai/kimi-k3 meta/llama-3.2-90b-vision-instruct
+ * Uso: npm run comparar-modelos -- google/gemma-4-31b-it nvidia/nemotron-3.5-super-vl-120b-a12b
  */
 import { extraerConNvidia, crearClienteNvidia } from "../src/extraction/nvidia.js";
 import { imagenConTexto } from "../tests/helpers/imagen-sintetica.js";

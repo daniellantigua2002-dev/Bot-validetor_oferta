@@ -25,10 +25,9 @@ Copia `.env.example` como `.env` y llena:
 | Variable | Qué es |
 |---|---|
 | `NVIDIA_API_KEY` | Clave gratuita de https://build.nvidia.com (empieza con `nvapi-`) |
-| `NVIDIA_MODEL` | Modelo de visión. Por defecto `moonshotai/kimi-k3` |
-| `NVIDIA_MODEL_RESPALDO` | Modelo que se usa si el principal falla. Por defecto `meta/llama-3.2-90b-vision-instruct`; vacío = sin respaldo |
-| `GEMINI_API_KEY` | Segunda IA de respaldo: clave gratuita de [Google AI Studio](https://aistudio.google.com/apikey). Se usa si NVIDIA falla o no responde en 30 s (gana la primera respuesta válida). Vacía = sin Gemini |
-| `GEMINI_MODEL` | Modelos de Gemini separados por coma; si uno está saturado entra el siguiente. Por defecto `gemini-3.5-flash,gemini-3.8-flash` (el `gemini-2.5-flash` ya no está disponible para claves nuevas) |
+| `NVIDIA_MODEL` | Modelo de visión de **respaldo final** (NVIDIA Build): entra solo cuando se agota la cuota de todas las claves de Gemini. Por defecto `google/gemma-4-31b-it` |
+| `GEMINI_API_KEY` | **IA principal**: una o varias claves gratuitas de [Google AI Studio](https://aistudio.google.com/apikey) separadas por coma, **una por cuenta de Google** (cada cuenta tiene sus 20 peticiones/día). El bot las rota en orden y salta a la siguiente cuando una se queda sin cuota del día; al agotarse todas, pasa a `NVIDIA_MODEL`. Vacía = sin Gemini |
+| `GEMINI_MODEL` | Modelos de Gemini separados por coma; si uno está saturado o sin cuota entra el siguiente. Por defecto `gemini-3.5-flash` (el `gemini-2.5-flash` ya no está disponible para claves nuevas) |
 | `TELEGRAM_BOT_TOKEN` | Token que da @BotFather al crear el bot |
 | `ALLOWED_USER_IDS` | IDs de Telegram que pueden usar el bot **en privado**, separados por coma (se obtienen con @userinfobot) |
 | `ALLOWED_CHAT_IDS` | IDs de los **grupos** donde cualquier miembro puede usar el bot (empiezan con `-100`). Al agregar el bot a un grupo, su ID aparece en la ventana del bot |
@@ -107,7 +106,7 @@ npm run extraer -- ./comprobante.jpg                 # solo la lectura de la ima
 El repositorio trae un `Dockerfile` (con Chromium para la foto de Banxico) y un `render.yaml`.
 
 1. Sube el proyecto a un repositorio **privado** de GitHub (`config.ts` tiene los números de cuenta). El `.env`, `data/` y las carpetas de comprobantes no se suben.
-2. En Render: **New → Blueprint**, elige el repositorio y escribe las claves que pide (cópialas de tu `.env`). Si en tu `.env` cambiaste `NVIDIA_MODEL`, `NVIDIA_MODEL_RESPALDO` o `GEMINI_MODEL`, agrégalas también en *Environment*.
+2. En Render: **New → Blueprint**, elige el repositorio y escribe las claves que pide (cópialas de tu `.env`). `GEMINI_API_KEY` lleva las varias claves separadas por coma, igual que en el `.env`. Si en tu `.env` cambiaste `NVIDIA_MODEL` o `GEMINI_MODEL`, agrégalas también en *Environment*.
 3. **Apaga el bot de la PC**: Telegram solo permite una copia a la vez. Si las dos corren, la de la PC se cierra con el aviso del 409.
 4. En los *Logs* de Render debe aparecer `Bot @… en línea` y **`Banxico responde desde este servidor`**. Si dice que Banxico **no** responde, Banxico está bloqueando la IP del servidor: el bot no podrá validar desde ahí.
 5. El plan gratuito se apaga tras 15 min sin visitas (Telegram no cuenta). Para que no se duerma, un monitor como [cron-job.org](https://cron-job.org) o [UptimeRobot](https://uptimerobot.com) debe visitar la dirección del servicio (`https://….onrender.com/`) cada 5–10 min: responde `ok: el bot está funcionando`.
@@ -154,7 +153,7 @@ npm run typecheck      # revisión de tipos
 npm run probar-imagenes                # mide la lectura del OCR con los 37 comprobantes de "Imagenes de prueba"
 npm run probar-imagenes -- --ia        # también la IA
 npm run probar-imagenes -- --banxico   # validación completa contra Banxico (lento)
-npm run comparar-modelos -- moonshotai/kimi-k3 <otro-modelo>   # si NVIDIA retira el modelo
+npm run comparar-modelos -- google/gemma-4-31b-it <otro-modelo>   # si NVIDIA retira el modelo (ver modelos: GET /v1/models)
 ```
 
 Documentación técnica:

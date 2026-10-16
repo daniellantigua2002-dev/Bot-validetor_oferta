@@ -6,13 +6,14 @@ import { z } from "zod";
 
 const EntornoSchema = z.object({
   NVIDIA_API_KEY: z.string().default(""),
-  NVIDIA_MODEL: z.string().min(1).default("moonshotai/kimi-k3"),
-  // Se usa si el modelo principal falla. Vacío = sin respaldo.
-  NVIDIA_MODEL_RESPALDO: z.string().default("meta/llama-3.2-90b-vision-instruct"),
-  // Segunda IA de respaldo (Google AI Studio, gratuita). Vacía = sin Gemini.
+  // Respaldo final: entra cuando se agota la cuota de todas las claves de Gemini. Visión en NVIDIA Build.
+  NVIDIA_MODEL: z.string().min(1).default("google/gemma-4-31b-it"),
+  // IA principal (Google AI Studio, gratuita). Una o varias claves separadas por coma, una por cuenta de
+  // Google: el bot las rota en orden y salta a la siguiente cuando una se queda sin cuota del día (429).
+  // Vacío = sin Gemini (solo NVIDIA y OCR).
   GEMINI_API_KEY: z.string().default(""),
-  // Uno o varios modelos separados por coma: si uno está saturado (503), entra el siguiente.
-  GEMINI_MODEL: z.string().min(1).default("gemini-3.5-flash,gemini-3.8-flash"),
+  // Uno o varios modelos separados por coma: si uno está saturado (503) o sin cuota, entra el siguiente.
+  GEMINI_MODEL: z.string().min(1).default("gemini-3.5-flash"),
   TELEGRAM_BOT_TOKEN: z.string().default(""),
   ALLOWED_USER_IDS: z.string().default(""),
   ALLOWED_CHAT_IDS: z.string().default(""),
@@ -33,8 +34,8 @@ const listaDeIds = (s: string) =>
 export const entorno = {
   nvidiaApiKey: crudo.NVIDIA_API_KEY,
   nvidiaModel: crudo.NVIDIA_MODEL,
-  nvidiaModeloRespaldo: crudo.NVIDIA_MODEL_RESPALDO.trim(),
-  geminiApiKey: crudo.GEMINI_API_KEY.trim(),
+  /** Claves de Gemini (una por cuenta de Google), en el orden en que se rotan. */
+  geminiApiKeys: crudo.GEMINI_API_KEY.split(",").map((k) => k.trim()).filter(Boolean),
   geminiModelos: crudo.GEMINI_MODEL.split(",").map((m) => m.trim()).filter(Boolean),
   telegramToken: crudo.TELEGRAM_BOT_TOKEN,
   /** Pueden usar el bot en privado. */

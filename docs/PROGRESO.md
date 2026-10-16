@@ -10,7 +10,7 @@
 |---|---|---|
 | 1. Investigar el CEP de Banxico | ✅ | Endpoints, campos y respuestas reales en [banxico-cep.md](banxico-cep.md) |
 | 2. Estructura y configuración | ✅ | Proyecto TypeScript; [config.ts](../src/config.ts) con 3 cuentas y 28 bancos |
-| 3. Extracción de la imagen | ✅ | NVIDIA (Kimi K3 y Llama 90B de respaldo) con OCR Tesseract en paralelo y cruce de 3 señales para el banco |
+| 3. Extracción de la imagen | ✅ | Gemini (varias cuentas en rotación) con gemma en NVIDIA de respaldo final, y OCR Tesseract en paralelo; cruce de 3 señales para el banco |
 | 4. Normalización y reglas | ✅ | Las 6 reglas en orden; `data/usados.json` con escritura atómica |
 | 5. Consulta a Banxico | ✅ | HTTP directo, reintentos y detección temprana de monto o cuenta alterados |
 | 6. Captura, pipeline y CLI | ✅ | Foto de la tabla de Banxico, registro con la clave real y `npm run validar` |
@@ -33,7 +33,7 @@
 
 ## Cómo funciona una validación
 
-1. **Lectura:** la IA (Kimi K3; si falla, Llama 90B; si falla, OCR) y el OCR local arrancan en paralelo.
+1. **Lectura:** la IA (Gemini rotando las claves de cada cuenta; al agotarse todas, gemma en NVIDIA; si falla, OCR) y el OCR local arrancan en paralelo.
 2. **Ruta rápida:** en cuanto el OCR termina (1–2 s), si leyó el monto y el banco (por nombre, forma de la clave o diseño del comprobante) y las reglas pasan, se hace **una consulta** a Banxico. Si Banxico da una respuesta definitiva (validado, ya usado o no liquidado), se responde sin esperar a la IA. Si no, se espera a la IA y esa consulta no se repite.
    - Lo que la IA deja vacío y el OCR sí leyó (por ejemplo la fecha "02/oct/26") se toma del OCR (`completarConOcr`).
 3. **Reglas:** es comprobante, datos mínimos (**monto**, y clave o referencia o una referencia habitual del banco; la fecha ya no es obligatoria), cuenta destino (3 dígitos; si no se ve, se **deduce** del banco destino o de la referencia de Azteca), mismo banco, fecha futura (BBVA de noche imprime "mañana" y no cuenta) y duplicado (solo si `REGLAS.bloquearDuplicados` es `true`).
@@ -66,7 +66,7 @@ Todas las peticiones a Banxico (consultas, catálogos, los estilos de la foto y 
 
 | Tema | Decisión | Motivo |
 |---|---|---|
-| Modelo de visión | `moonshotai/kimi-k3`, con respaldo `meta/llama-3.2-90b-vision-instruct` | `llama-4-maverick` ya no existe. En la comparación, Kimi acertó 20/20 campos y Llama 90B 14/20. Cada llamada tiene 75 s como máximo y sin reintento automático |
+| Modelo de visión | IA principal **Gemini** (`gemini-3.5-flash`), con **gemma** (`google/gemma-4-31b-it`) en NVIDIA como respaldo final | Kimi K3 y Llama 90B se retiraron el 16-oct (ver la entrada "Rotación de claves Gemini + gemma"). En la comparación del 16-oct, `gemini-3.5-flash` acertó 20/20 en ~11 s y `gemma-4-31b-it` 18/20 en ~60 s. Cada llamada tiene 75 s como máximo y sin reintento automático |
 | Clave de rastreo | **No** se pasa a mayúsculas; solo se quitan espacios y se corrige `MBANO` → `MBAN0` | Banxico distingue mayúsculas |
 | Dígitos de cuenta | `minDigitosTerminacion: 3` | Azteca solo muestra "***574" |
 | Pausa entre consultas | 6 s, con turno global | Con ~2 s Banxico pidió captcha |
@@ -91,7 +91,8 @@ Todas las peticiones a Banxico (consultas, catálogos, los estilos de la foto y 
 | OCR sin monto (10-oct) | Si el OCR no ve el monto pero hay clave, referencia o número de comprobante, sigue siendo comprobante: la respuesta es "falta el monto" (y se puede escribir en la nota), no "no es un comprobante" | Mejor respuesta cuando falla la IA |
 | BBVA sin referencia fija (10-oct) | La referencia que pone BBVA **cambia según la semana**: no se fija. Se **aprende** de los pagos BBVA validados (Banxico la devuelve) y se usa solo para BBVA sin referencia de fechas cercanas (±7 días; gana la más vista). Sin ninguna aprendida, se pide en la nota (`data/referencias-aprendidas.json`) | Indicación del usuario (del 05 al 09-oct fue 2309260, pero varía); el aprendizaje automático lo aceptó después |
 | Reintentos solos (10-oct) | Pago de hace menos de 15 min no encontrado → se revisa a los 5 y a los 10 min. Banxico caído (o tan lento que se agota el tiempo) → cada 3 min hasta 1 h, o en cuanto vuelva. La lectura ya hecha se reutiliza y las esperas sobreviven a un reinicio (`src/bot/espera.ts`) | Recomendación aceptada por el usuario |
-| Gemini de respaldo (10-oct) | Carrera escalonada: NVIDIA (Kimi) primero; si falla o no responde en 30 s arranca Gemini (`GEMINI_API_KEY`), y al final Llama. Gana la primera respuesta válida | NVIDIA falló en 6 de 37 imágenes y a veces tarda más de 2 min |
+| Gemini de respaldo (10-oct) | Carrera escalonada: NVIDIA (Kimi) primero; si falla o no responde en 30 s arranca Gemini (`GEMINI_API_KEY`), y al final Llama. Gana la primera respuesta válida | NVIDIA falló en 6 de 37 imágenes y a veces tarda más de 2 min. **Reemplazado el 16-oct** (ver "Rotación de claves Gemini + gemma") |
+| Rotación de claves Gemini + gemma (16-oct) | `moonshotai/kimi-k3` murió (HTTP 410, fin de vida) y `llama-3.2-90b` solo daba timeout. La cadena ahora es: **Gemini primero con varias claves en rotación** (una por cuenta de Google, `GEMINI_API_KEY` separadas por coma; cada cuenta son 20 peticiones/día y al agotarse una se salta a la siguiente con el 429) y, al acabarse todas, **gemma** (`NVIDIA_MODEL = google/gemma-4-31b-it`) con límites generosos; el OCR local queda de último recurso. Se verificó que un 429 nunca corta el comprobante: salta de clave y, en el peor caso, cae a gemma. Se quitó `NVIDIA_MODEL_RESPALDO`. Con varias claves, el nombre en los registros lleva `#1/#2/#3` | Se probaron todos los modelos de visión de la cuenta NVIDIA: solo `gemma-4-31b-it` leía bien (18/20) pero lento (~60 s); `gemini-3.5-flash` es mejor (20/20, ~11 s) pero con cuota de 20/día, así que se usan 3 cuentas en rotación |
 | Banco dudoso (10-oct) | Antes de preguntar con botones se prueban en Banxico hasta 3 bancos posibles (2 fechas cada uno) | Banxico solo encuentra el pago con el banco correcto |
 | Guía fijada (10-oct) | Al arrancar (y cuando le dan el permiso "Fijar mensajes") el bot fija en el grupo la guía con las palabras de la nota. Reemplaza la recomendación de un mensaje fijado con instrucciones por banco | Pedido del usuario |
 | Comprobantes reales (10-oct) | Se analizaron los 37 comprobantes de `Imagenes de prueba/` y se confirmaron en Banxico: referencias habituales por banco, BBVA nocturno con la fecha del día siguiente, Santander con dos referencias (gana "Número de referencia"), cuenta deducida, firmas de diseño por banco (cuarta señal del banco emisor), formas de clave de BanCoppel, Citibanamex y Azteca. Todo en `docs/comprobantes.md` | Pedido del usuario: validar cualquier comprobante, primero que valide y luego la velocidad |
@@ -193,10 +194,10 @@ Todas las peticiones a Banxico (consultas, catálogos, los estilos de la foto y 
 src/
   index.ts               arranca el bot
   config.ts              CUENTAS_DESTINO, REGLAS, CAPTURA, BANXICO y BANCOS
-  entorno.ts             .env (NVIDIA_API_KEY, NVIDIA_MODEL, NVIDIA_MODEL_RESPALDO, TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS, ALLOWED_CHAT_IDS)
+  entorno.ts             .env (NVIDIA_API_KEY, NVIDIA_MODEL, GEMINI_API_KEY, GEMINI_MODEL, TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS, ALLOWED_CHAT_IDS)
   pipeline.ts            orquestador (ruta rápida y ruta normal)
   cli.ts                 npm run validar
-  extraction/            prompt, nvidia (modelo principal y respaldo), OCR, campos-texto, banco-emisor, index
+  extraction/            prompt, nvidia (Gemini en rotación y gemma de respaldo), OCR, campos-texto, banco-emisor, index
   normalize/             clave, monto, fecha, hora, banco → catálogo, validadores
   rules/index.ts         las 6 reglas, MENSAJES y confirmaciones
   storage/usados.ts      data/usados.json

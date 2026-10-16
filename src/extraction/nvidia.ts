@@ -15,7 +15,11 @@ export const LADO_MAXIMO_PX = 1600;
 const TIMEOUT_MS = 75_000;
 /** API de Gemini compatible con OpenAI (Google AI Studio). */
 export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/";
-/** Si un modelo no respondió en este tiempo, arranca también el siguiente (NVIDIA a veces tarda más de 2 min). */
+/**
+ * Si un modelo no respondió en este tiempo, arranca también el siguiente. Gemini suele contestar en ~12 s
+ * (por debajo de esto), así que normalmente solo se gasta una clave por comprobante; si una clave se queda
+ * sin cuota falla al instante y la siguiente arranca de inmediato, sin esperar este tiempo.
+ */
 export const ESPERA_ANTES_DEL_RESPALDO_MS = 30_000;
 /** Gemini "piensa" antes de responder y esos tokens cuentan: con 1024 la respuesta puede quedar cortada. */
 const TOKENS_GEMINI = 8192;
@@ -41,7 +45,7 @@ export function crearClienteNvidia(apiKey: string = entorno.nvidiaApiKey): Clien
   return new OpenAI({ baseURL: NVIDIA_BASE_URL, apiKey, maxRetries: 0, timeout: TIMEOUT_MS });
 }
 
-export function crearClienteGemini(apiKey: string = entorno.geminiApiKey): ClienteChat {
+export function crearClienteGemini(apiKey: string = entorno.geminiApiKeys[0] ?? ""): ClienteChat {
   if (!apiKey) throw new ErrorExtraccion("Falta GEMINI_API_KEY en el archivo .env");
   return new OpenAI({ baseURL: GEMINI_BASE_URL, apiKey, maxRetries: 0, timeout: TIMEOUT_MS });
 }
@@ -158,25 +162,31 @@ export interface ModeloVision {
 }
 
 /**
- * Modelos configurados, en orden: el principal de NVIDIA, los de Gemini (si hay GEMINI_API_KEY) y el de
- * respaldo de NVIDIA. Gemini va antes que el respaldo de NVIDIA porque cuando NVIDIA falla (429,
- * tiempo agotado) suele fallar con los dos modelos a la vez.
+ * Modelos configurados, en el orden en que entran a la carrera:
+ * 1. Gemini (Google AI Studio): cada clave de cada cuenta, con cada modelo. Es la IA principal porque es
+ *    rápida y precisa. Cuando una clave se queda sin cuota del día (429) falla al instante y la carrera
+ *    salta sola a la siguiente clave; así se aprovechan los 20/día de cada cuenta antes de pasar a NVIDIA.
+ *    Con varias claves, el nombre lleva "#1", "#2"… (el número de clave) para distinguirlas en los registros.
+ * 2. NVIDIA (gemma) como respaldo final: solo entra cuando se agotó la cuota de TODAS las claves de Gemini.
+ *    Tiene límites mucho más generosos, así que el servicio nunca se queda sin IA.
+ * Si ninguno responde, el pipeline usa el OCR local (ver extraction/index.ts).
  */
 export function modelosConfigurados(): ModeloVision[] {
   const modelos: ModeloVision[] = [];
-  const nvidia = (modelo: string): ModeloVision => ({
-    nombre: modelo,
-    extraer: (img) => extraerConNvidia(img, { cliente: crearClienteNvidia(), modelo }),
+  const varias = entorno.geminiApiKeys.length > 1;
+  entorno.geminiApiKeys.forEach((apiKey, i) => {
+    const cliente = crearClienteGemini(apiKey);
+    for (const modelo of entorno.geminiModelos) {
+      modelos.push({
+        nombre: varias ? `${modelo}#${i + 1}` : modelo,
+        extraer: (img) => extraerConNvidia(img, { cliente, modelo, proveedor: "Gemini", maxTokens: TOKENS_GEMINI }),
+      });
+    }
   });
-  if (entorno.nvidiaApiKey && entorno.nvidiaModel) modelos.push(nvidia(entorno.nvidiaModel));
-  for (const modelo of entorno.geminiApiKey ? entorno.geminiModelos : []) {
-    modelos.push({
-      nombre: modelo,
-      extraer: (img) => extraerConNvidia(img, { cliente: crearClienteGemini(), modelo, proveedor: "Gemini", maxTokens: TOKENS_GEMINI }),
-    });
+  if (entorno.nvidiaApiKey && entorno.nvidiaModel) {
+    const modelo = entorno.nvidiaModel;
+    modelos.push({ nombre: modelo, extraer: (img) => extraerConNvidia(img, { cliente: crearClienteNvidia(), modelo }) });
   }
-  const respaldo = entorno.nvidiaModeloRespaldo;
-  if (entorno.nvidiaApiKey && respaldo && respaldo !== entorno.nvidiaModel) modelos.push(nvidia(respaldo));
   return modelos;
 }
 
