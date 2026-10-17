@@ -157,7 +157,7 @@ function consultaReferencias(deps: DependenciasPipeline, ahora = new Date()): Co
   const referencias = deps.referencias;
   if (!referencias) return undefined;
   const hoy = formatInTimeZone(ahora, ZONA_HORARIA, "yyyy-MM-dd");
-  return (banco, fechaIso) => referencias.para(banco, fechaIso ?? hoy);
+  return (banco, fechaIso, rango) => referencias.para(banco, fechaIso ?? hoy, rango);
 }
 
 /** Bancos posibles que se prueban en Banxico antes de preguntar el banco (o de decir "mismo banco"). */

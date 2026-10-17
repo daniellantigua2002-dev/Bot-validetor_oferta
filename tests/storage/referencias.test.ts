@@ -39,14 +39,35 @@ describe("ReferenciasAprendidas (la referencia de BBVA cambia según la semana)"
     expect(r.para("BBVA", "2026-10-16")).toBe("3009260");
   });
 
-  it("se guarda en el disco y se vuelve a leer al reiniciar", async () => {
+  it("se guarda en el disco (conteo por día) y se vuelve a leer al reiniciar", async () => {
     const ruta = join(dir, "data", "ref.json");
     await new ReferenciasAprendidas(ruta).aprender("BBVA", "2309260", "2026-10-08");
     const json = JSON.parse(await readFile(ruta, "utf8"));
-    expect(json).toEqual([{ banco: "BBVA", referencia: "2309260", fecha: "2026-10-08", veces: 1 }]);
+    expect(json).toEqual([{ banco: "BBVA", referencia: "2309260", dias: { "2026-10-08": 1 } }]);
     const otra = new ReferenciasAprendidas(ruta);
     await otra.cargar();
     expect(otra.para("BBVA", "2026-10-09")).toBe("2309260");
+  });
+
+  it("lee el formato viejo ({ fecha, veces }) sin perder lo aprendido", async () => {
+    const ruta = join(dir, "ref.json");
+    await writeFile(ruta, JSON.stringify([{ banco: "BBVA", referencia: "2309260", fecha: "2026-10-08", veces: 3 }]));
+    const r = new ReferenciasAprendidas(ruta);
+    await r.cargar();
+    expect(r.para("BBVA", "2026-10-09")).toBe("2309260");
+  });
+
+  it("usa la más repetida en los últimos 7 días, no la más repetida de siempre (cambio de semana)", async () => {
+    const r = new ReferenciasAprendidas(join(dir, "ref.json"));
+    // Semana pasada: la vieja se validó muchas veces.
+    for (const d of ["05", "06", "07", "08", "09"]) await r.aprender("BBVA", "2309260", `2026-10-${d}`);
+    // Esta semana: la nueva, pocas veces todavía.
+    for (const d of ["13", "14", "15"]) await r.aprender("BBVA", "3009260", `2026-10-${d}`);
+    // El jueves las validaciones viejas ya se salieron de la ventana de 7 días: gana la de esta semana.
+    expect(r.para("BBVA", "2026-10-15")).toBe("3009260");
+    // Y la 2ª (rango 1) es la vieja, para la consulta extra.
+    expect(r.para("BBVA", "2026-10-15", 1)).toBe("2309260");
+    expect(r.para("BBVA", "2026-10-15", 2)).toBeNull();
   });
 
   it("olvida las que llevan más de 30 días sin verse; un archivo dañado empieza vacío", async () => {

@@ -84,7 +84,7 @@ function entrada(datos: Partial<DatosExtraidos>, extra: Partial<EntradaBusqueda>
     normalizados: normalizarDatos(datosEjemplo({ referencia: null, ...datos })),
     coincidencia: tarjeta,
     bancoEmisor: BBVA,
-    referenciasAprendidas: (banco) => (banco === "BBVA" ? REF_BBVA : null),
+    referenciasAprendidas: (banco, _fecha, rango = 0) => (banco === "BBVA" && rango === 0 ? REF_BBVA : null),
     ...extra,
   };
 }
@@ -324,5 +324,54 @@ describe("mensajes y consola", () => {
     expect(resumenIntentos({ intentos }, { detalle: true })).toBe("• 12-10-2026 · referencia 1234567 · …6185 → no encontrado (ningún pago de Banxico tiene la clave de rastreo del comprobante)");
     // Sin detalle, igual que antes.
     expect(resumenIntentos({ intentos })).toBe("• 12-10-2026 · referencia · …6185 → no encontrado");
+  });
+});
+
+describe("consulta extra con la 2ª referencia semanal (BBVA sin referencia en el comprobante)", () => {
+  const dosReferencias = (primera: string, segunda: string | null): EntradaBusqueda =>
+    entrada(
+      { claveRastreo: null, referencia: null, fecha: "2026-10-16", hora: "12:00", monto: 490, cuentaDestino: "1871" },
+      {
+        ahora: CDMX("12:30", "16"),
+        referenciasAprendidas: (banco, _fecha, rango = 0) => (banco === "BBVA" ? (rango === 0 ? primera : rango === 1 ? segunda : null) : null),
+      },
+    );
+
+  it("si la 1ª (más repetida) no encuentra, la 2ª lo valida en una sola consulta con la fecha del comprobante", async () => {
+    const pago: PagoFalso = { fecha: "16-10-2026", clave: "MBAN01002610160012345678", referencia: "2222222", emisor: "40012", receptor: "40072", cuenta: BANORTE.tarjeta, monto: "490.00" };
+    const { deps, consultas } = banxico([pago]);
+    const r = await buscarEnBanxico(dosReferencias("1111111", "2222222"), deps);
+    expect(r.estado).toBe("VALIDADO");
+    // La 1ª referencia se probó en varias fechas; la extra usó la 2ª y una sola fecha (la del comprobante).
+    expect(consultas.some((c) => c.criterio === "1111111")).toBe(true);
+    const extra = consultas.filter((c) => c.criterio === "2222222");
+    expect(extra).toHaveLength(1);
+    expect(extra[0]).toMatchObject({ tipoCriterio: "R", fecha: "16-10-2026", cuenta: BANORTE.tarjeta });
+  });
+
+  it("sin una 2ª referencia no hace la consulta extra", async () => {
+    const { deps, consultas } = banxico([]);
+    const r = await buscarEnBanxico(dosReferencias("1111111", null), deps);
+    expect(r.estado).toBe("NO_ENCONTRADO");
+    expect(consultas.every((c) => c.criterio === "1111111")).toBe(true);
+  });
+
+  it("si no se vio la cuenta en el comprobante, la consulta extra prueba todas las cuentas de ese banco", async () => {
+    const pago: PagoFalso = { fecha: "16-10-2026", clave: "MBAN01002610160087654321", referencia: "2222222", emisor: "40012", receptor: "40072", cuenta: BANORTE.clabe, monto: "490.00" };
+    const { deps, consultas } = banxico([pago]);
+    const sinCuenta = entrada(
+      { claveRastreo: null, referencia: null, fecha: "2026-10-16", hora: "12:00", monto: 490, cuentaDestino: null },
+      {
+        coincidencia: { cuenta: BANORTE, tipo: "clabe", numero: BANORTE.clabe },
+        cuentaDeducida: true,
+        ahora: CDMX("12:30", "16"),
+        referenciasAprendidas: (banco, _fecha, rango = 0) => (banco === "BBVA" ? (rango === 0 ? "1111111" : rango === 1 ? "2222222" : null) : null),
+      },
+    );
+    const r = await buscarEnBanxico(sinCuenta, deps);
+    expect(r.estado).toBe("VALIDADO");
+    const extra = consultas.filter((c) => c.criterio === "2222222");
+    expect(extra.map((c) => c.cuenta)).toContain(BANORTE.clabe);
+    expect(extra.every((c) => c.fecha === "16-10-2026")).toBe(true);
   });
 });

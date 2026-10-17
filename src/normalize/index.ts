@@ -39,9 +39,10 @@ function referenciaDeFecha(fechaIso: string, formato: "aaMMdd" | "ddMMaa" | "ddM
 
 /**
  * Referencias aprendidas de pagos validados (las de tipo "semanal"): la del banco para un pago de esa
- * fecha (null = sin fecha: hoy), o null si no se conoce ninguna.
+ * fecha (null = sin fecha: hoy). `rango` 0 = la más repetida en la última semana, 1 = la segunda, etc.;
+ * null si no se conoce ninguna en ese puesto.
  */
-export type ConsultaReferencias = (banco: ClaveBanco, fechaIso: string | null) => string | null;
+export type ConsultaReferencias = (banco: ClaveBanco, fechaIso: string | null, rango?: number) => string | null;
 
 /**
  * Referencia que la app del banco pone sola (BANCOS[…].referenciaHabitual), para buscar en Banxico
@@ -73,6 +74,16 @@ export function tieneReferenciaHabitual(banco: ClaveBanco | null, aprendidas?: C
   const habitual = banco ? (BANCOS[banco] as DefinicionBanco).referenciaHabitual : undefined;
   if (habitual?.tipo === "semanal") return !!aprendidas?.(banco!, fechaIso);
   return habitual !== undefined;
+}
+
+/**
+ * La 2ª referencia semanal más repetida en los últimos 7 días, para una consulta extra (solo BBVA y
+ * similares, de tipo "semanal"). null si el banco no cambia su referencia por semana o si no hay una 2ª.
+ */
+export function referenciaSemanalSecundaria(banco: ClaveBanco | null, fechaIso: string, aprendidas?: ConsultaReferencias): string | null {
+  const habitual = banco ? (BANCOS[banco] as DefinicionBanco).referenciaHabitual : undefined;
+  if (habitual?.tipo !== "semanal") return null;
+  return aprendidas?.(banco!, fechaIso, 1) ?? null;
 }
 
 /** Dígitos del número de comprobante de Mercado Pago ("#182949974794"), si tiene al menos 7. */

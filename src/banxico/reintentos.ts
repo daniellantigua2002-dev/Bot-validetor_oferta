@@ -38,6 +38,7 @@ import {
   fechaLegible,
   fechaParaBanxico,
   referenciaHabitual,
+  referenciaSemanalSecundaria,
   sumarDias,
   tieneReferenciaHabitual,
   type ConsultaReferencias,
@@ -929,6 +930,28 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
     }
   }
 
+  /**
+   * Consulta extra con la 2ª referencia semanal más repetida en los últimos 7 días (BBVA, cuando el
+   * comprobante no trae referencia): una sola fecha —la del comprobante o, si no trae, la de hoy— y las
+   * cuentas que apliquen (la vista en el comprobante, o todas si no se vio ninguna). Así, si la referencia
+   * de la semana acaba de cambiar y la del flujo normal fue la que no era, esta otra todavía lo encuentra.
+   */
+  async function consultaReferenciaSecundaria(): Promise<Fin | void> {
+    const fechaSecIso = n.fecha ?? hoy;
+    const refSecundaria = referenciaSemanalSecundaria(bancoEmisor.clave, fechaSecIso, entrada.referenciasAprendidas);
+    if (!refSecundaria) return;
+    const ctx = await contexto(fechaSecIso);
+    if (!ctx || "fin" in ctx) return ctx ?? undefined;
+    const { fecha, emisor, receptor, nombres } = ctx;
+    for (const [cuenta, tipoCuenta] of cuentas) {
+      const consulta: ConsultaBanxico = { tipoCriterio: "R", fecha, criterio: refSecundaria, emisor, receptor, cuenta, monto, tipoConsulta: 0 };
+      if (entrada.yaConsultadas?.has(claveDeConsulta(consulta))) continue;
+      const base: IntentoBase = { fecha, criterio: "REFERENCIA", valorCriterio: refSecundaria, cuenta, ...nombres };
+      const r = await intentar(consulta, base, { fecha, criterio: "REFERENCIA", valor: refSecundaria, cuenta, tipoCuenta });
+      if ("fin" in r) return r;
+    }
+  }
+
   // La fecha más probable, completa. En las demás: con clave, primero si existe ese día (y solo entonces con
   // nuestras cuentas) y al final la referencia donde hace falta; sin clave, la consulta más probable y luego
   // las demás cuentas. Así un pago con la fecha mal impresa o mal leída aparece pronto.
@@ -941,6 +964,11 @@ async function buscar(entrada: EntradaBusqueda, deps: DependenciasBusqueda, cons
   ];
   for (const [paso, fechaIso] of pasos) {
     const fin = await paso(fechaIso);
+    if (fin) return fin.fin;
+  }
+  // Sin referencia en el comprobante y fuera de la ruta rápida: la consulta extra con la 2ª referencia semanal.
+  if (!n.referencia && !entrada.soloPrimerIntento) {
+    const fin = await consultaReferenciaSecundaria();
     if (fin) return fin.fin;
   }
   return sinEncontrar();
