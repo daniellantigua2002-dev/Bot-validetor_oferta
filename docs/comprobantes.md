@@ -37,6 +37,11 @@ Los datos esperados de cada imagen están en `tests/fixtures/imagenes-prueba.jso
 | Compartamos | 12 dígitos + aaaaMMdd + hhmmss (1 muestra) | `9095381180120261007212220` |
 | Scotiabank | aaaaMMdd + `40044` + … (no aparece en el comprobante) | `2026100740044B36L0000501290024` |
 | Mercado Pago | `CPO` + número de comprobante (no aparece en el comprobante) | `CPO182949974794` |
+| HSBC | `HSBC` + dígitos (1 muestra, cortada) | `HSBC729857…` |
+| albo | aaaaMMdd + 5 dígitos + `ALBO` + 13 dígitos | `2026101590721ALBO1920322744767` |
+| Inbursa | `036NAPP` + ddMMyyyy + dígitos | `036NAPP29092026301309216` |
+| BanBajío | `BB` + dígitos (1 muestra, 15 caracteres) | `BB2473115020808` |
+| Consubanco / Uber Pro Card | `CSB0` + aaaaMMdd + dígitos | `CSB020261018080851208892077` |
 
 En BBVA "Detalle de movimiento", el **folio de operación** (`0083280746 072`) son los últimos 10 dígitos
 de la clave más el código del banco destino (072 = Banorte).
@@ -55,7 +60,13 @@ de la clave más el código del banco destino (072 = Banorte).
 - **Spin by OXXO** (morado): fecha arriba, "Enviaste $…", "BANORTE - ****1871" o la CLABE completa, "Número de cuenta Spin" (**origen**), referencia, "ID de movimiento", clave `SPIN-…`.
 - **Mercado Pago**: "Comprobante de transferencia", "$ 690 MXN" (letra grande), "Origen y destino" (primero origen, luego destino), "Comprobante #…".
 - **Compartamos** (magenta): "¡Transferencia exitosa!", todo en dos columnas, referencia ddMMaa.
-- **Scotiabank** (rojo): "Transferencia exitosa · Enviaste $790.00 a …", referencia ddMMaa, folio, sin clave.
+- **Scotiabank** (rojo): "Transferencia exitosa · Enviaste $790.00 a …", cuenta de origen "Scotia Nomina Clasica *8198", referencia ddMMaa (071026), folio, sin clave.
+- **HSBC** (rojo): dos formatos. (1) "Resumen de operación" en tabla: "Cuenta Flexible Simple HSBC ****9561", "Banco receptor: 002-BANAMEX", "Referencia numérica: 02", "Clave de rastreo: HSBC729857…"; (2) "Confirmación" con "Transferencia exitosa", "Institución bancaria: HSBC", "Nómina Flexible HSBC *****5986", "Cuenta destino: Transferencia Express Tarjeta de débito ****871", "Banco receptor: BANORTE", "Referencia numérica: 0171026". La clave empieza con "HSBC".
+- **albo** (azul): comprobante minimalista en tarjeta blanca: monto, "Nombre: Nicolas", fecha y hora, tarjeta parcial (4169 16** **** 8852 = destino), concepto, clave de rastreo "2026101590721ALBO1920322744767". Sin referencia visible.
+- **Inbursa** (azul): logo "INBURSA", "Traspaso SPEI" (otro banco) o "Traspaso a tercero" (mismo banco), folio, monto, fecha, cuenta de origen con tipo ("TIPO CUENTA SANBORNS ****0700" o "NOMINA INBURSA ****1603"), destinatario con banco y tarjeta/CLABE. Clave de rastreo: "036NAPP29092026301309216" (036 = prefijo CLABE Inbursa, fecha ddMMyyyy).
+- **BanBajío** (morado/verde): logo "BanBajío" con "BB", "Operación exitosa", "Transferencia SPEI", cuenta de origen (********2101, Nómina 1), ordenante (JORGE ISAAC CORTES ESPINOZA), beneficiario, cuenta destino completa (4169161484898852 = BanCoppel), referencia (2473115), "No. Autorización" (138235041), clave de rastreo "BB2473115020808".
+- **Consubanco / Uber Pro Card** (negro/blanco): "Uber Pro Card · Powered by" (logo Consubanco), "Envío exitoso", monto grande ($500), fecha, "Para: nicolas alejandro josid", "Cuenta destino: 0708178789", mensaje del remitente, clave rastreo "CSB020261018080851208892077".
+- **Klar** (morado): dos formatos. (1) App oscura: "Detalles de transacción", "Transferencia enviada", monto, fecha, estado "Completada", destinatario, CLABE, banco, mensaje, referencia (5214022), folio largo con ":" (la clave es lo que va antes de ":"). (2) PDF/correo: "Klar · Transferencia realizada", monto, destinatario, tarjeta destino (****6574), cuenta origen (****9198), referencia (0875218), concepto, fecha.
 
 ## Casos de la carpeta que no se pueden validar (y es correcto)
 

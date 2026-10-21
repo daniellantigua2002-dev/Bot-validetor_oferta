@@ -158,7 +158,7 @@ export type ReferenciaHabitual =
  */
 export interface FechaEnClave {
   patron: RegExp;
-  formato: "aaMMdd" | "aaaaMMdd" | "aaaaMMddHHmmss-utc";
+  formato: "aaMMdd" | "aaaaMMdd" | "ddMMyyyy" | "aaaaMMddHHmmss-utc";
 }
 
 // Las referencias habituales, las firmas y las formas de clave salen de los comprobantes reales de
@@ -169,19 +169,21 @@ export const BANCOS = {
     nombre: "BBVA",
     catalogo: ["BBVA MEXICO"],
     alias: ["bbva", "bbva mexico", "bbva bancomer", "bancomer"],
-    prefijosClave: ["MBAN"], // después de MBAN siempre va un cero (MBAN0…)
+    prefijosClave: ["MBAN", "BNET"], // MBAN = app móvil, BNET = banca en línea (BBVA Net)
     // La referencia que pone BBVA cambia según la semana (del 05 al 09-oct fue 2309260): no se fija, se
     // aprende de los pagos BBVA validados y se usa solo para pagos de fechas cercanas.
     referenciaHabitual: { tipo: "semanal" },
     fechaSiguienteDeNoche: true,
-    // "MBAN01002610090085509456" = MBAN0100 + aaMMdd (la fecha impresa) + 10 dígitos.
-    fechaEnClave: { patron: /^MBAN0100(\d{6})/, formato: "aaMMdd" },
+    // "MBAN01002610090085509456" = MBAN0100 + aaMMdd + 10 dígitos (app móvil).
+    // "BNET01002610190028116147" = BNET0100 + aaMMdd + 10 dígitos (banca en línea).
+    fechaEnClave: { patron: /^(?:MBAN|BNET)0100(\d{6})/, formato: "aaMMdd" },
     largosClave: [24],
     firmas: [
       /\bcomprobante de la operacion\b.*\bimporte transferido\b/,
       /\bnombre del beneficiario de esta operacion es un dato no verificado\b/,
       /\bmonto transferido\b.*\bcuenta de ahorro\b/,
       /\bmban banca\b/, // "Lugar o canal: MBAN BANCA MOV" del detalle de movimiento
+      /\bcomision por transferencia\b.*\bcuenta origen\b/, // formato verde de banca en línea (BNET)
     ],
     prefijoClabe: "012",
   },
@@ -244,7 +246,10 @@ export const BANCOS = {
     nombre: "Inbursa",
     catalogo: ["INBURSA"],
     alias: ["inbursa", "banco inbursa"],
-    prefijosClave: [],
+    prefijosClave: ["036N"], // "036NAPP" + ddMMyyyy + dígitos (036 = prefijo CLABE Inbursa)
+    fechaEnClave: { patron: /^036NAPP(\d{8})/, formato: "ddMMyyyy" },
+    largosClave: [24],
+    firmas: [/\btraspaso spei\b/, /\bcuenta sanborns\b/],
     prefijoClabe: "036",
   },
   BANAMEX: {
@@ -290,7 +295,11 @@ export const BANCOS = {
     nombre: "HSBC",
     catalogo: ["HSBC"],
     alias: ["hsbc"],
-    prefijosClave: [],
+    prefijosClave: ["HSBC"], // "HSBC" + dígitos (visto "HSBC729857…")
+    firmas: [
+      /\bcuenta flexible\b.*\bhsbc\b/,
+      /\bnomina flexible\b.*\bhsbc\b/,
+    ],
     prefijoClabe: "021",
   },
   SCOTIABANK: {
@@ -347,7 +356,8 @@ export const BANCOS = {
     nombre: "BanBajío",
     catalogo: ["BAJIO"],
     alias: ["banbajio", "banco del bajio", "bajio"],
-    prefijosClave: [],
+    prefijosClave: ["BB"], // "BB" + dígitos (1 muestra: "BB2473115020808")
+    largosClave: [15],
     prefijoClabe: "030",
   },
   AFIRME: {
@@ -395,6 +405,10 @@ export const BANCOS = {
     catalogo: ["albo"],
     alias: ["albo"],
     prefijosClave: [],
+    // "2026101590721ALBO1920322744767" = aaaaMMdd + 5 dígitos + "ALBO" + 13 dígitos.
+    patronClave: /^\d{13}ALBO\d{13}$/,
+    fechaEnClave: { patron: /^(\d{8})\d{5}ALBO/, formato: "aaaaMMdd" },
+    largosClave: [30],
     prefijoClabe: "721",
   },
   FONDEADORA: {

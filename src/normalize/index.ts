@@ -165,6 +165,7 @@ export function fechaDesdeClave(banco: ClaveBanco | null, clave: string | null):
   const valor = clave && definicion?.patron.exec(clave)?.[1];
   if (!definicion || !valor) return null;
   if (definicion.formato === "aaMMdd") return normalizarFechaIso(`20${valor.slice(0, 2)}-${valor.slice(2, 4)}-${valor.slice(4, 6)}`);
+  if (definicion.formato === "ddMMyyyy") return normalizarFechaIso(`${valor.slice(4, 8)}-${valor.slice(2, 4)}-${valor.slice(0, 2)}`);
   const fecha = normalizarFechaIso(`${valor.slice(0, 4)}-${valor.slice(4, 6)}-${valor.slice(6, 8)}`);
   if (!fecha || definicion.formato === "aaaaMMdd") return fecha;
   const momento = new Date(`${fecha}T${valor.slice(8, 10)}:${valor.slice(10, 12)}:${valor.slice(12, 14)}Z`);
