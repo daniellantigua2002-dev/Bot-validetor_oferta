@@ -42,7 +42,7 @@ describe("resolverBanco", () => {
 describe("bancosEnLinea", () => {
   it("cuenta cada banco una vez y prefiere el alias más largo", () => {
     expect(bancosEnLinea("Spin by OXXO")).toEqual(["SPIN"]);
-    expect(bancosEnLinea("BANORTE - 072650010004755884")).toEqual(["BANORTE"]);
+    expect(bancosEnLinea("BANORTE - 072000000000000012")).toEqual(["BANORTE"]);
     expect(bancosEnLinea("De Banco Azteca a Inbursa")).toEqual(["AZTECA", "INBURSA"]);
   });
 
@@ -86,8 +86,8 @@ describe("firmas y patrones de los comprobantes reales", () => {
   });
 
   it("bancoPorReferencia: los últimos 7 dígitos de una cuenta nuestra son el diseño de Azteca", () => {
-    expect(bancoPorReferencia("7841871")).toBe("AZTECA");
-    expect(bancoPorReferencia("4616185")).toBe("AZTECA");
+    expect(bancoPorReferencia("8178789")).toBe("AZTECA"); // últimos 7 de la CLABE de Inbursa (…0708178789)
+    expect(bancoPorReferencia("9395151")).toBe("AZTECA"); // últimos 7 de la CLABE de Citibanamex (…1849395151)
     expect(bancoPorReferencia("2309260")).toBeNull();
   });
 

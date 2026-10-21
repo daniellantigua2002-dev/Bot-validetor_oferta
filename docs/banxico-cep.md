@@ -96,7 +96,7 @@ Petición real capturada desde el navegador:
 
 ```
 tipoCriterio=T&fecha=08-10-2026&criterio=SPIN-20261008200443959PNEB9&emisor=90728&receptor=40072
-&cuenta=072650010004755884&receptorParticipante=0&monto=400.00&captcha=c&tipoConsulta=0
+&cuenta=072000000000000012&receptorParticipante=0&monto=400.00&captcha=c&tipoConsulta=0
 ```
 
 ### Campos
@@ -108,7 +108,7 @@ tipoCriterio=T&fecha=08-10-2026&criterio=SPIN-20261008200443959PNEB9&emisor=9072
 | `criterio` | Clave de rastreo: hasta 30 caracteres ASCII. Referencia: hasta 7 dígitos. | ⚠️ **La clave distingue mayúsculas de minúsculas** (ver 2.3). |
 | `emisor` | Código del catálogo, por ejemplo `40012` | Debe ser distinto de `receptor`. |
 | `receptor` | Código del catálogo | Si es igual al emisor, Banxico responde con un error. |
-| `cuenta` | Solo dígitos. CLABE = 18, tarjeta de débito = 16, celular = 10. También el **número de cuenta** del banco (7, 10 u 11 dígitos): el 12-oct Banxico tuvo un pago BBVA → Banorte con la cuenta `1000473306`, y el 13-oct, con cuentas de 7 (Banamex), 10 (Banorte) y 11 dígitos (BanCoppel, Inbursa), respondió "Operación no encontrada" normal (no rechaza el largo). | Se compara **exacta**: un dígito distinto da "no encontrado". |
+| `cuenta` | Solo dígitos. CLABE = 18, tarjeta de débito = 16, celular = 10. También el **número de cuenta** del banco (7, 10 u 11 dígitos): el 12-oct Banxico tuvo un pago BBVA → Banorte con la cuenta `1000000001`, y el 13-oct, con cuentas de 7 (Banamex), 10 (Banorte) y 11 dígitos (BanCoppel, Inbursa), respondió "Operación no encontrada" normal (no rechaza el largo). | Se compara **exacta**: un dígito distinto da "no encontrado". |
 | `receptorParticipante` | `0` = "Pago a banco" **desmarcado** · `1` = marcado (la cuenta pasa a ser la cuenta ordenante) | Siempre enviar `0`. |
 | `monto` | `^\d*\.?\d{0,2}$`: sin `$` ni comas, por ejemplo `1032.00` | Se compara **exacto**: $401 en lugar de $400 da "no encontrado". |
 | `captcha` | `c` | **Siempre** enviarlo con `c` (ver la sección 5). |
@@ -155,7 +155,7 @@ Con un solo pago encontrado:
   <tr><td>Estado del pago en Banxico</td><td>Liquidado</td></tr>
   <tr><td>Fecha y hora de recepción</td><td>08/10/2026 14:04:47</td></tr>
   <tr><td>Fecha y hora de procesamiento</td><td>08/10/2026 14:04:48</td></tr>
-  <tr class="columna-cuenta"><td>Cuenta Beneficiaria</td><td>072650010004755884</td></tr>
+  <tr class="columna-cuenta"><td>Cuenta Beneficiaria</td><td>072000000000000012</td></tr>
   <tr class="columna-monto"><td>Monto</td><td>400.00</td></tr>
 </tbody></table>
 ```
@@ -236,8 +236,8 @@ GET https://www.banxico.org.mx/cep/descarga.do?formato=ZIP   → Paquete-CEP-202
 ```xml
 <SPEI_Tercero FechaOperacion="2026-10-08" Hora="14:04:48" ClaveSPEI="40072" claveRastreo="SPIN-20261008200443959PNEB9"
               sello="…" numeroCertificado="00001000000710905384" cadenaCDA="||1|08102026|…">
-  <Beneficiario BancoReceptor="BANORTE" Nombre="GABRIEL ALEJANDRO FONDACARO RIELO" TipoCuenta="40"
-                Cuenta="072650010004755884" RFC="…" Concepto="…" IVA="0.00" MontoPago="400.00"/>
+  <Beneficiario BancoReceptor="BANORTE" Nombre="CARLOS ALBERTO RAMIREZ SOTO" TipoCuenta="40"
+                Cuenta="072000000000000012" RFC="…" Concepto="…" IVA="0.00" MontoPago="400.00"/>
   <Ordenante BancoEmisor="SPIN BY OXXO" Nombre="…" TipoCuenta="40" Cuenta="…" RFC="…"/>
 </SPEI_Tercero>
 ```
@@ -296,7 +296,7 @@ GET https://www.banxico.org.mx/cep/descarga.do?formato=ZIP   → Paquete-CEP-202
 
 | Comprobante | Clave de rastreo | Referencia | Cuenta destino visible | Notas |
 |---|---|---|---|---|
-| Spin → Banorte | `SPIN-20261008200443959PNEB9` (partida en 2 líneas en la imagen) | 7454748 | CLABE completa `072650010004755884` | La clave lleva la fecha y la hora UTC. |
+| Spin → Banorte | `SPIN-20261008200443959PNEB9` (partida en 2 líneas en la imagen) | 7454748 | CLABE completa `072000000000000012` | La clave lleva la fecha y la hora UTC. |
 | Azteca → Inbursa | `261008011287636711I` (termina en letra) | 4936574 | Solo `Inbursa ***574` (**3 dígitos**) | La referencia son los últimos 7 dígitos de la tarjeta destino. |
 | Klar → Banamex | `27SsrAVomLDdm0HAqpDehA`: la parte del **Folio** antes de `:` | 5214022 | CLABE completa con espacios (`0021 80701 …`) | Clave con mayúsculas y minúsculas. |
 

@@ -224,7 +224,7 @@ export function buscarCuentasParecidas(digitos: string | null | undefined): Cuen
   return parecidas.sort((a, b) => a.errores - b.errores);
 }
 
-/** Palabras de un nombre en minúsculas, sin acentos ni signos: "GABRIEL F**" → ["gabriel", "f"]. */
+/** Palabras de un nombre en minúsculas, sin acentos ni signos: "NICOLAS J**" → ["nicolas", "j"]. */
 function palabrasDeNombre(nombre: string): string[] {
   return nombre
     .normalize("NFD")
@@ -237,9 +237,9 @@ function palabrasDeNombre(nombre: string): string[] {
 
 /**
  * ¿El nombre leído es el de este titular? Cada palabra completa que coincide vale 1 y cada inicial que
- * coincide con otra palabra del titular, ½ ("GABRIEL F" = 1½). Un titular de una sola palabra (una empresa,
- * "MEXIOFERTAS") con esa palabra; uno de varias, con 1½ o más y al menos una palabra completa: un nombre de
- * pila solo ("Gabriel") no basta.
+ * coincide con otra palabra del titular, ½ ("NICOLAS J" = 1½). Un titular de una sola palabra (una empresa)
+ * con esa palabra; uno de varias, con 1½ o más y al menos una palabra completa: un nombre de
+ * pila solo ("Nicolas") no basta.
  */
 function esElTitular(leido: string[], titular: string[]): boolean {
   const pendientes = [...titular];
@@ -264,10 +264,10 @@ function esElTitular(leido: string[], titular: string[]): boolean {
 }
 
 /**
- * Nuestras cuentas cuyo titular es el beneficiario que dice el comprobante ("Gabriel Alejandro Fondacaro" →
- * Banorte, Banamex y BanCoppel; "MEXIOFERTAS" → Inbursa). Pedido del usuario (11-oct): el nombre es solo una
- * pista para decidir si vale la pena buscar más cuando la cuenta leída no es nuestra; **nunca** sirve para
- * rechazar (el usuario no quiere que se revise el titular).
+ * Nuestras cuentas cuyo titular es el beneficiario que dice el comprobante ("Nicolas Alejandro Josid" →
+ * Inbursa, Banamex y BanCoppel). El nombre es solo una pista para decidir si vale la pena buscar más
+ * cuando la cuenta leída no es nuestra; **nunca** sirve para rechazar (el usuario no quiere que se
+ * revise el titular).
  */
 export function cuentasDelBeneficiario(...nombres: (string | null | undefined)[]): CuentaDestino[] {
   const leidos = nombres.filter((n): n is string => !!n?.trim()).map(palabrasDeNombre);
@@ -283,7 +283,7 @@ function coincidenciaDeCuenta(cuenta: CuentaDestino): CoincidenciaCuenta {
 /**
  * Cuenta destino cuando el comprobante no muestra su número (o la terminación es de varias cuentas):
  * 1. por el banco destino ("Banco destino: Banorte"): nuestra única cuenta en ese banco;
- * 2. por la referencia: Banco Azteca usa los últimos 7 dígitos de la cuenta destino ("7841871").
+ * 2. por la referencia: Banco Azteca usa los últimos 7 dígitos de la cuenta destino ("4936574").
  * Banxico verifica después el número completo.
  */
 function deducirCuenta(

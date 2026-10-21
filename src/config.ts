@@ -17,33 +17,26 @@ export const ZONA_HORARIA = "America/Mexico_City";
 // Cuentas destino (las únicas cuentas a las que un comprobante puede ser válido)
 // ---------------------------------------------------------------------------
 
+// Cuentas destino: las únicas cuentas a las que un comprobante puede ser válido.
+// Una entrada por cuenta propia; `banco` debe ser una clave de BANCOS.
 export const CUENTAS_DESTINO = [
   {
-    banco: "BANORTE",
-    titular: "Gabriel Alejandro Fondacaro Rielo",
-    clabe: "072650010004755884",
-    tarjeta: "4189143097841871",
-    cuenta: "1000473306",
-  },
-  {
     banco: "INBURSA",
-    titular: "MEXIOFERTAS",
-    clabe: "036650500740571946",
-    cuenta: "50074057194",
+    titular: "Nicolas Alejandro Josid",
+    clabe: "036650500708178789",
+    tarjeta: "4658285914936574",
   },
   {
     banco: "BANAMEX", // Citibanamex
-    titular: "Gabriel Alejandro Fondacaro Rielo",
-    clabe: "002180702124616185",
-    tarjeta: "5204166178808798",
-    cuenta: "2461618",
+    titular: "Nicolas Alejandro Josid",
+    clabe: "002180701849395151",
+    tarjeta: "5204166036339994",
   },
   {
     banco: "BANCOPPEL",
-    titular: "Gabriel Alejandro Fondacaro Rielo",
-    clabe: "137650105302649426",
-    tarjeta: "4169160608474988",
-    cuenta: "10530264942",
+    titular: "Nicolas Alejandro Josid",
+    clabe: "137650105151433223",
+    tarjeta: "4169161484898852",
   },
 ] as const satisfies readonly DefinicionCuenta[];
 
@@ -201,7 +194,7 @@ export const BANCOS = {
     patronClave: /^\d{18,19}[A-Z]$/,
     fechaEnClave: { patron: /^(\d{6})\d{12,13}[A-Z]$/, formato: "aaMMdd" },
     largosClave: [19, 20],
-    // La referencia son los últimos 7 dígitos de la cuenta destino ("Banamex ***185" → 4616185).
+    // La referencia son los últimos 7 dígitos de la cuenta destino ("Banamex ***151" → 9395151).
     referenciaHabitual: { tipo: "cuentaDestino" },
     firmas: [/\bguardadito\b/, /\benviaste a una cuenta\b/, /\btodos los envios se hacen en el horario zona centro\b/],
     prefijoClabe: "127",
@@ -424,6 +417,17 @@ export const BANCOS = {
     alias: ["stp", "sistema de transferencias y pagos"],
     prefijosClave: [],
     prefijoClabe: "646",
+  },
+  CONSUBANCO: {
+    nombre: "Consubanco",
+    catalogo: ["CONSUBANCO"],
+    // La Uber Pro Card ("Powered by" Consubanco) envía por SPEI como Consubanco.
+    alias: ["consubanco", "uber pro card", "uber pro"],
+    prefijosClave: ["CSB0"], // "CSB0" + aaaaMMdd + dígitos
+    fechaEnClave: { patron: /^CSB0(\d{8})/, formato: "aaaaMMdd" },
+    largosClave: [27],
+    firmas: [/\buber pro card\b/],
+    prefijoClabe: "140",
   },
 } as const satisfies Record<string, DefinicionBanco>;
 

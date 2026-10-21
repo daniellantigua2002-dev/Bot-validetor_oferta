@@ -46,7 +46,7 @@ const PAGO = {
   claveRastreo: "SPIN-20261008200443959PNEB9",
   emisor: "SPIN BY OXXO",
   receptor: "BANORTE",
-  cuentaBeneficiaria: "072650010004755884",
+  cuentaBeneficiaria: "072000000000000012",
   monto: "1352.00",
   fechaRecepcion: "08/10/2026 14:04:47",
   fechaProcesamiento: "08/10/2026 14:04:48",
@@ -88,16 +88,16 @@ describe("respuestaFinal", () => {
 
   it("no encontrado: el resumen de fechas y consultas, sin la lista de intentos (esa queda en la consola)", () => {
     const intentos: ResultadoValidacion["intentos"] = [
-      { fecha: "08-10-2026", criterio: "CLAVE_RASTREO", valorCriterio: "X", cuenta: "072650010004755884", emisor: "A", receptor: "B", resultado: "NO_ENCONTRADO" },
+      { fecha: "08-10-2026", criterio: "CLAVE_RASTREO", valorCriterio: "X", cuenta: "072000000000000012", emisor: "A", receptor: "B", resultado: "NO_ENCONTRADO" },
       { fecha: "08-10-2026", criterio: "CLAVE_RASTREO", valorCriterio: "X", cuenta: "", emisor: "A", receptor: "B", resultado: "NO_ENCONTRADO", sondeo: "SIN_CUENTA_NI_MONTO" },
-      { fecha: "08-10-2026", criterio: "REFERENCIA", valorCriterio: "1", cuenta: "072650010004755884", emisor: "A", receptor: "B", resultado: "NO_ENCONTRADO" },
+      { fecha: "08-10-2026", criterio: "REFERENCIA", valorCriterio: "1", cuenta: "072000000000000012", emisor: "A", receptor: "B", resultado: "NO_ENCONTRADO" },
     ];
     const mensaje = "No se encontró el pago en Banxico: busqué el 08/10/2026 (3 consultas).";
     const r = respuestaFinal(base({ codigo: "NO_ENCONTRADO", mensaje, intentos }));
     expect(r.texto.startsWith(`🔍 ${mensaje}`)).toBe(true);
     expect(r.texto).not.toContain("Intentos realizados");
     expect(resumenIntentos({ intentos })).toBe(
-      "• 08-10-2026 · clave · …5884 → no encontrado\n• 08-10-2026 · clave (solo clave) → no encontrado\n• 08-10-2026 · referencia · …5884 → no encontrado",
+      "• 08-10-2026 · clave · …0012 → no encontrado\n• 08-10-2026 · clave (solo clave) → no encontrado\n• 08-10-2026 · referencia · …0012 → no encontrado",
     );
   });
 
@@ -147,8 +147,8 @@ describe("respuestaFinal", () => {
       "id1",
     );
     expect(r.botones!.flat()).toEqual([
-      { texto: "Banorte …5884", datos: "k:id1:0" },
-      { texto: "Inbursa …1946", datos: "k:id1:1" },
+      { texto: "Inbursa …8789", datos: "k:id1:0" },
+      { texto: "Citibanamex …5151", datos: "k:id1:1" },
       { texto: "✖️ Cancelar", datos: "x:id1" },
     ]);
   });

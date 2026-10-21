@@ -27,14 +27,14 @@ describe("extraerDeTexto", () => {
       esComprobante: true,
       bancoEmisor: { nombre: "Spin by OXXO", fuente: "texto" },
       esMercadoPago: false,
-      cuentaDestino: "072650010004755884",
+      cuentaDestino: "072000000000000012",
       claveRastreo: "SPIN-20261008200443959PNEB9",
       referencia: "7454748",
       numeroOperacion: null,
       fecha: "2026-10-08",
       hora: "14:04:43",
       monto: 400,
-      beneficiario: "Gabriel Alejandro Fondacaro Rielo",
+      beneficiario: "Carlos Alberto Ramírez Soto",
     });
     expect(DatosExtraidosSchema.safeParse(d).success).toBe(true);
   });
@@ -237,7 +237,7 @@ describe("extraerDeTexto: formatos de los comprobantes reales", () => {
     expect(d).toMatchObject({
       bancoEmisor: { nombre: "Spin by OXXO" },
       referencia: "7358003",
-      cuentaDestino: "036650500740571946",
+      cuentaDestino: "036000000000000029",
       claveRastreo: "SPIN-20261006164228VIOOHYLN",
       fecha: "2026-10-06",
       monto: 590,
@@ -251,7 +251,7 @@ describe("extraerDeTexto: formatos de los comprobantes reales", () => {
 
   it("máscaras que el OCR deforma: '*+**41871' es …1871 y ':4191' en el origen no es el destino", () => {
     expect(extraerDeTexto("Transferencia\nImporte $10.00\nBANORTE - *+**41871").cuentaDestino).toBe("1871");
-    expect(extraerDeTexto("Transferencia\nImporte $10.00\nOrigen Cuenta de Ahorro :4191\nDestino Gabriel -:1871").cuentaDestino).toBe("1871");
+    expect(extraerDeTexto("Transferencia\nImporte $10.00\nOrigen Cuenta de Ahorro :4191\nDestino Carlos -:1871").cuentaDestino).toBe("1871");
   });
 
   it("monto sin signo de pesos (Santander: '-1,300.00 MXN')", () => {

@@ -14,7 +14,7 @@ const CONSULTA: ConsultaBanxico = {
   criterio: "SPIN-20261008200443959PNEB9",
   emisor: { codigo: "90728", nombre: "SPIN BY OXXO" },
   receptor: { codigo: "40072", nombre: "BANORTE" },
-  cuenta: "072650010004755884",
+  cuenta: "072000000000000012",
   monto: "400.00",
   tipoConsulta: 0,
 };
@@ -38,7 +38,7 @@ describe("formulario de valida.do", () => {
   it("envía exactamente los campos del sitio, con Pago a banco desmarcado y captcha=c", () => {
     expect(formularioConsulta(CONSULTA).toString()).toBe(
       "tipoCriterio=T&fecha=08-10-2026&criterio=SPIN-20261008200443959PNEB9&emisor=90728&receptor=40072" +
-        "&cuenta=072650010004755884&receptorParticipante=0&monto=400.00&captcha=c&tipoConsulta=0",
+        "&cuenta=072000000000000012&receptorParticipante=0&monto=400.00&captcha=c&tipoConsulta=0",
     );
   });
 });

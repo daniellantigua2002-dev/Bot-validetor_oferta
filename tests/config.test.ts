@@ -17,14 +17,14 @@ const sinAcentos = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, 
 
 describe("validadores", () => {
   it("valida el dígito de control de la CLABE", () => {
-    expect(clabeValida("072650010004755884")).toBe(true);
-    expect(clabeValida("072650010004755885")).toBe(false);
-    expect(clabeValida("07265001000475588")).toBe(false);
+    expect(clabeValida("072000000000000012")).toBe(true);
+    expect(clabeValida("072000000000000013")).toBe(false);
+    expect(clabeValida("07200000000000001")).toBe(false);
   });
 
   it("valida tarjetas con Luhn", () => {
-    expect(tarjetaValida("4189143097841871")).toBe(true);
-    expect(tarjetaValida("4189143097841872")).toBe(false);
+    expect(tarjetaValida("4189000000000013")).toBe(true);
+    expect(tarjetaValida("4189000000000014")).toBe(false);
   });
 });
 

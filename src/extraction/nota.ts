@@ -55,7 +55,7 @@ export interface Diferencia {
   imagen: string;
 }
 
-const PARTE = /^(fecha|monto|clave|ref|banco|cuenta)\b\s*:?\s*(.*)$/i;
+const PARTE = /^(fecha|monto|clave|referencia|ref|banco|cuenta)\b\s*:?\s*(.*)$/i;
 const PESOS = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
 
 /** yyyy-MM-dd → dd/MM/yyyy */
@@ -167,7 +167,12 @@ export function leerNota(texto: string | null | undefined, hoy = new Date()): No
   const nota: NotaLeida = { datos: {}, entendidos: [], noEntendidos: [] };
   for (const parte of partes) {
     const m = parte.match(PARTE);
-    const entendida = m ? interpretar(m[1]!.toLowerCase() as Campo, m[2]!.trim(), nota, hoy) : false;
+    let entendida = false;
+    if (m) {
+      // "referencia" (palabra completa) vale igual que "ref".
+      const campo = (m[1]!.toLowerCase() === "referencia" ? "ref" : m[1]!.toLowerCase()) as Campo;
+      entendida = interpretar(campo, m[2]!.trim(), nota, hoy);
+    }
     if (!entendida) nota.noEntendidos.push(parte);
   }
   return nota;

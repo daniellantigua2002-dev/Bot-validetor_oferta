@@ -15,7 +15,7 @@ describe("OCR con Tesseract", () => {
     expect(datos).toMatchObject({
       esComprobante: true,
       bancoEmisor: { nombre: "Spin by OXXO" },
-      cuentaDestino: "072650010004755884",
+      cuentaDestino: "072000000000000012",
       claveRastreo: "SPIN-20261008200443959PNEB9",
       referencia: "7454748",
       fecha: "2026-10-08",

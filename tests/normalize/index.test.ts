@@ -102,7 +102,7 @@ describe("monto, fecha, cuenta y referencia", () => {
 
   it("cuenta: solo dígitos", () => {
     expect(normalizarCuenta("Inbursa ***574")).toBe("574");
-    expect(normalizarCuenta("0726 5001 0004 7558 84")).toBe("072650010004755884");
+    expect(normalizarCuenta("0720 0000 0000 0000 12")).toBe("072000000000000012");
     expect(normalizarCuenta("***")).toBeNull();
   });
 
@@ -122,7 +122,7 @@ describe("monto, fecha, cuenta y referencia", () => {
       fecha: "2026-10-08",
       fechaBanxico: "08-10-2026",
       hora: "14:04:43",
-      cuentaDestino: "072650010004755884",
+      cuentaDestino: "072000000000000012",
     });
   });
 });
@@ -188,7 +188,7 @@ describe("banco → institución del catálogo de la fecha", () => {
 
 describe("referenciaHabitual (la que pone sola la app del banco)", () => {
   it("BBVA: ninguna (la que pone cambia según la semana)", () => {
-    expect(referenciaHabitual("BBVA", "2026-10-09", "4189143097841871")).toBeNull();
+    expect(referenciaHabitual("BBVA", "2026-10-09", "4189000000000013")).toBeNull();
   });
 
   it("Banorte aaMMdd, Banamex ddMMaa, BanCoppel ddMMaa0", () => {
@@ -198,7 +198,7 @@ describe("referenciaHabitual (la que pone sola la app del banco)", () => {
   });
 
   it("Azteca: los últimos 7 dígitos de la cuenta destino", () => {
-    expect(referenciaHabitual("AZTECA", "2026-10-07", "4189143097841871")).toBe("7841871");
+    expect(referenciaHabitual("AZTECA", "2026-10-07", "4189000000000013")).toBe("0000013");
   });
 
   it("un banco sin referencia habitual → null", () => {

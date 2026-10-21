@@ -43,6 +43,15 @@ Ejemplo: <code>fecha 09/10/2026, ref 1234567, banco BBVA</code>
 
 ⚠️ Solo se aceptan imágenes: los mensajes de texto se borran.`;
 
+/** Segundo mensaje fijado en el grupo: aviso de que Banxico puede fallar en horas pico. */
+export const AVISO_BANXICO = `⚠️ <b>Aviso sobre Banxico</b>
+
+En las horas pico del día, Banxico (el sistema CEP) puede dejar de responder por momentos. Cuando eso pasa, un comprobante que <b>sí es válido</b> puede no encontrarse justo en ese instante y el bot responde «no se encontró».
+
+Si te aparece ese mensaje:
+• Reenvía el comprobante <b>más tarde</b>, o
+• Realiza la <b>validación manual</b>.`;
+
 /** El texto de un mensaje HTML tal como lo devuelve Telegram (sin etiquetas). */
 export const textoPlano = (html: string) =>
   html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");

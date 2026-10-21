@@ -45,6 +45,7 @@ import {
   AVISO_BANXICO_CAIDO,
   AVISO_BANXICO_VOLVIO,
   AVISO_EDITADO,
+  AVISO_BANXICO,
   AVISO_SOLO_IMAGENES,
   avisoPreguntaPendiente,
   avisoUnaFotoALaVez,
@@ -703,18 +704,22 @@ export function crearBot(
         const chat = await bot.api.getChat(chatId);
         const fijado = chat.pinned_message;
         const delBot = fijado?.from?.id === idBot;
-        if (delBot && fijado?.text === textoPlano(GUIA_GRUPO)) continue; // ya está fijada y al día
+        // Se fijan dos mensajes: la guía y, encima, el aviso de Banxico. El aviso (el más reciente) hace
+        // de marca: si ya está fijado y al día, la guía también lo está y no se vuelve a fijar nada.
+        if (delBot && fijado?.text === textoPlano(AVISO_BANXICO)) continue;
         const miembro = await bot.api.getChatMember(chatId, idBot);
         const puedeFijar = miembro.status === "creator" || (miembro.status === "administrator" && miembro.can_pin_messages === true);
         if (!puedeFijar) {
           log(`No puedo fijar la guía en el grupo ${chatId}: dale al bot el permiso de administrador "Fijar mensajes".`);
           continue;
         }
-        // Una guía anterior del bot se reemplaza (al borrarla se desfija).
+        // Lo que el bot haya fijado antes se reemplaza (al borrarlo se desfija).
         if (delBot && fijado) await bot.api.deleteMessage(chatId, fijado.message_id).catch(() => undefined);
         const guia = await bot.api.sendMessage(chatId, GUIA_GRUPO, { parse_mode: "HTML" });
         await bot.api.pinChatMessage(chatId, guia.message_id, { disable_notification: true });
-        log(`Guía de la nota fijada en el grupo ${chatId}`);
+        const aviso = await bot.api.sendMessage(chatId, AVISO_BANXICO, { parse_mode: "HTML" });
+        await bot.api.pinChatMessage(chatId, aviso.message_id, { disable_notification: true });
+        log(`Guía y aviso de Banxico fijados en el grupo ${chatId}`);
       } catch (e) {
         log(`No se pudo fijar la guía en el grupo ${chatId}: ${(e as Error).message}`);
       }

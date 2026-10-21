@@ -10,7 +10,7 @@ import { TEXTO_SPIN, TEXTO_KLAR, TEXTO_AZTECA } from "../tests/extraction/textos
 
 const MODELOS = process.argv.slice(2);
 const casos = [
-  { nombre: "spin", img: await imagenConTexto(TEXTO_SPIN.split("\n")), esperado: { banco: /spin/i, cuentaDestino: "072650010004755884", claveRastreo: "SPIN-20261008200443959PNEB9", referencia: "7454748", fecha: "2026-10-08", hora: "14:04:43", monto: 400 } },
+  { nombre: "spin", img: await imagenConTexto(TEXTO_SPIN.split("\n")), esperado: { banco: /spin/i, cuentaDestino: "072000000000000012", claveRastreo: "SPIN-20261008200443959PNEB9", referencia: "7454748", fecha: "2026-10-08", hora: "14:04:43", monto: 400 } },
   { nombre: "klar", img: await imagenConTexto(TEXTO_KLAR.split("\n"), { oscuro: true }), esperado: { cuentaDestino: "012180001234567890", claveRastreo: "27SsrAVomLDdm0HAqpDehA", referencia: "5214022", fecha: "2026-09-22", hora: "16:52", monto: 1352 } },
   { nombre: "azteca", img: await imagenConTexto(TEXTO_AZTECA.split("\n")), esperado: { banco: /azteca/i, cuentaDestino: "574", claveRastreo: "261008011287636711I", referencia: "4936574", fecha: "2026-10-08", hora: "17:09:36", monto: 890 } },
 ];

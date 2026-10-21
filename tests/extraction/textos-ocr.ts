@@ -8,9 +8,9 @@ by OXXO
 08/10/2026 02:04:43 p.m.
 Enviaste
 $400.00
-a Gabriel Alejandro Fondacaro Rielo
+a Carlos Alberto Ramírez Soto
 *Dato no verificado por esta institución
-BANORTE - 072650010004755884
+BANORTE - 072000000000000012
 En proceso de verificación
 Número de cuenta Spin 9500507116211835576
 Número de referencia 7454748
@@ -77,7 +77,7 @@ Fecha de operación 08/10/2026 10:15:20`;
 export const TEXTO_MERCADO_PAGO = `mercado pago
 Transferencia enviada
 $ 250.50
-Para Gabriel Alejandro Fondacaro Rielo
+Para Carlos Alberto Ramírez Soto
 Banamex ****8798
 Número de operación #182949974794
 9 de octubre de 2026 a las 11:05 hs`;
@@ -85,10 +85,10 @@ Número de operación #182949974794
 /** Santander (SuperMóvil) → Banorte: OCR real (RFC del cliente anonimizado). Sin clave de rastreo. */
 export const TEXTO_SANTANDER = `| d Comprobante
 Enviaste $990.00 MXN
-por el concepto “Transferencia a Gabriel Alejandro
+por el concepto “Transferencia a Carlos Alejandro
 Fondac”.
 GA
-Gabriel Alejandro Fondacaro Rieleros
+Carlos Alberto Ramírez Sotoros
 
 BANORTE - TDD **1871
 Fecha y hora de operación 06/0ct/2026 - 22:06
@@ -106,7 +106,7 @@ Envié
 $ 400.00 mMN
 Desde Para
 UD
-Nómina Banorte sin Cheqg... GABRIEL A**** p*=* R**=-
+Nómina Banorte sin Cheqg... CARLOS A**** p*=* R**=-
 BANORTE
 Cuenta ****6962 Cuenta ***3306
 Concepto de transferencia: tomasa cerda suarez
@@ -160,7 +160,7 @@ Origen y destino
 «» Benito Ortiz
 Mercado Pago Wallet
 CLABE: ****3529
-” Gabriel Alejandro fondacaro rielo
+” Carlos Alejandro fondacaro rielo
 BANORTE
 Número de tarjeta: ****1871
 Comprobante
@@ -192,8 +192,8 @@ $490.00`;
 /** BBVA, "Detalle de movimiento" en dos columnas: la clave y la fecha quedan partidas en dos renglones. */
 export const TEXTO_BBVA_DETALLE = `< Detalle de movimiento
 Volver
-Nombre del Gabriel Alejandro
-beneficiario Fondacaro Rielo
+Nombre del Carlos Alejandro
+beneficiario Ramírez Soto
 Banco destino Banorte
 Lugar o MBAN BANCA
 canal MOV
@@ -227,7 +227,7 @@ Monto transferido
 Fecha y hora de la transacción
 Cuenta destino
 BANORTE/IXE *1871
-Gabriel alejandro fondacaro
+Carlos alejandro fondacaro
 Cuenta origen
 CUENTA EFECTIVA DIGITAL *9091
 BanCoppel
@@ -242,9 +242,9 @@ export const TEXTO_SPIN_INBURSA = `spin
 06/10/2026 10:42:39 a.m.
 Enviaste Y
 $590.00
-a Mexiofertas
+a Comerciodemo
 *Dato no verificado por esta institución
-INBURSA - 036650500740571946
+INBURSA - 036000000000000029
 Aceptada
 Número de cuenta  950050261654941
 Spin 6390
@@ -260,7 +260,7 @@ Monto Total: $590.00`;
 /** Santander con "Ref. SuperMóvil" y además "Número de referencia" (Banxico usa este). */
 export const TEXTO_SANTANDER_DOS_REFERENCIAS = `Comprobante
 Enviaste $1,490.00 MXN por el concepto
-Gabriel Alejandro Fondacaro Rielo
+Carlos Alberto Ramírez Soto
 BANORTE - CLABE **5884
 Fecha y hora de operación 03/Oct/26 - 18:22
 Cuenta origen CTA **5970

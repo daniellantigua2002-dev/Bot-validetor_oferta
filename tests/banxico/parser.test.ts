@@ -15,7 +15,7 @@ describe("parsearRespuesta con respuestas reales de Banxico", () => {
           claveRastreo: "SPIN-20261008200443959PNEB9",
           emisor: "SPIN BY OXXO",
           receptor: "BANORTE",
-          cuentaBeneficiaria: "072650010004755884",
+          cuentaBeneficiaria: "072000000000000012",
           monto: "400.00",
           fechaRecepcion: "08/10/2026 14:04:47",
           fechaProcesamiento: "08/10/2026 14:04:48",

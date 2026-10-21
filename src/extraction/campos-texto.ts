@@ -347,7 +347,7 @@ function extraerBeneficiario(lineas: Linea[]): string | null {
   const r = valorDeEtiqueta(lineas, /\b(beneficiario|destinatario|nombre del beneficiario|titular)\b/i);
   const nombre = r?.valor.match(/^[\p{L} .]{3,}$/u)?.[0];
   if (nombre) return nombre.trim();
-  // Spin: "a Gabriel Alejandro Fondacaro Rielo" debajo del monto.
+  // Spin: "a Nicolas Alejandro Josid" debajo del monto.
   for (const l of lineas) {
     const m = l.texto.match(/^a\s+(\p{Lu}[\p{L}]+(?:\s+\p{Lu}[\p{L}]+){1,5})$/u);
     if (m) return m[1]!;

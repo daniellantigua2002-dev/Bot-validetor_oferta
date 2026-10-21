@@ -15,7 +15,7 @@ describe("clasificarMensaje: solo se aceptan imágenes", () => {
 
   it.each([
     ["texto", { text: "hola" }],
-    ["números", { text: "072650010004755884" }],
+    ["números", { text: "072000000000000012" }],
     ["un monto", { text: "$400.00" }],
     ["un comando desconocido", { text: "/validar" }],
     ["un PDF", { document: { file_id: "p", file_unique_id: "p", mime_type: "application/pdf" } }],

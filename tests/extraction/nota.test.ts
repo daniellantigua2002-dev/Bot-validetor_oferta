@@ -53,7 +53,7 @@ describe("leerNota", () => {
 
   it("cuenta por terminación (con o sin punto) o por banco: se sabe la cuenta, no el número", () => {
     expect(leerNota("cuenta •1871", HOY)?.datos.cuentaDestino).toBe("1871");
-    expect(leerNota("cuenta Banorte", HOY)).toEqual({ datos: { cuentaBanco: "BANORTE" }, entendidos: ["cuenta Banorte"], noEntendidos: [] });
+    expect(leerNota("cuenta BanCoppel", HOY)).toEqual({ datos: { cuentaBanco: "BANCOPPEL" }, entendidos: ["cuenta BanCoppel"], noEntendidos: [] });
     expect(leerNota("cuenta citibanamex", HOY)?.datos).toEqual({ cuentaBanco: "BANAMEX" });
     expect(leerNota("cuenta inbursa", HOY)?.datos).toEqual({ cuentaBanco: "INBURSA" });
   });
@@ -63,8 +63,8 @@ describe("leerNota", () => {
   });
 
   it("si se escribe la cuenta dos veces, vale la última", () => {
-    expect(leerNota("cuenta 1871, cuenta Banorte", HOY)?.datos).toEqual({ cuentaBanco: "BANORTE" });
-    expect(leerNota("cuenta Banorte, cuenta 1871", HOY)?.datos).toEqual({ cuentaDestino: "1871" });
+    expect(leerNota("cuenta 1871, cuenta BanCoppel", HOY)?.datos).toEqual({ cuentaBanco: "BANCOPPEL" });
+    expect(leerNota("cuenta BanCoppel, cuenta 1871", HOY)?.datos).toEqual({ cuentaDestino: "1871" });
   });
 
   it("lo que no se entiende se devuelve tal cual, sin perder lo demás", () => {
@@ -120,39 +120,39 @@ describe("aplicarNota", () => {
     expect(e.notaAplicada).toEqual({ diferencias: [] });
   });
 
-  it("el mismo dato escrito de otra forma no es diferencia (clave MBANO/MBAN0, cuenta Banorte = tarjeta …1871)", () => {
-    const e = aplicarNota(lectura({ claveRastreo: "MBANO1002610090090453121", cuentaDestino: "1871" }), {
+  it("el mismo dato escrito de otra forma no es diferencia (clave MBANO/MBAN0, terminación …3223 = CLABE completa de BanCoppel)", () => {
+    const e = aplicarNota(lectura({ claveRastreo: "MBANO1002610090090453121", cuentaDestino: "3223" }), {
       claveRastreo: "MBAN01002610090090453121",
-      cuentaDestino: "072650010004755884",
+      cuentaDestino: "137650105151433223",
     });
     expect(e.notaAplicada?.diferencias).toEqual([]);
   });
 
-  describe("'cuenta Banorte': se sabe la cuenta, no el número", () => {
+  describe("'cuenta BanCoppel': se sabe la cuenta, no el número", () => {
     it("sin número en la imagen: queda el banco destino para probar todos los números de esa cuenta", () => {
-      const e = aplicarNota(lectura({ cuentaDestino: null, bancoDestino: null }), { cuentaBanco: "BANORTE" });
-      expect(e.datos).toMatchObject({ cuentaDestino: null, bancoDestino: "Banorte" });
+      const e = aplicarNota(lectura({ cuentaDestino: null, bancoDestino: null }), { cuentaBanco: "BANCOPPEL" });
+      expect(e.datos).toMatchObject({ cuentaDestino: null, bancoDestino: "BanCoppel" });
       expect(e.notaAplicada?.diferencias).toEqual([]);
     });
 
-    it("la imagen muestra un número de esa misma cuenta (…1871): se conserva, es más preciso", () => {
-      const e = aplicarNota(lectura({ cuentaDestino: "1871" }), { cuentaBanco: "BANORTE" });
-      expect(e.datos).toMatchObject({ cuentaDestino: "1871", bancoDestino: "Banorte" });
+    it("la imagen muestra un número de esa misma cuenta (…3223): se conserva, es más preciso", () => {
+      const e = aplicarNota(lectura({ cuentaDestino: "3223" }), { cuentaBanco: "BANCOPPEL" });
+      expect(e.datos).toMatchObject({ cuentaDestino: "3223", bancoDestino: "BanCoppel" });
       expect(e.notaAplicada?.diferencias).toEqual([]);
     });
 
-    it("vale para cualquiera de nuestros bancos (BanCoppel …4988)", () => {
-      const e = aplicarNota(lectura({ cuentaDestino: "4988" }), { cuentaBanco: "BANCOPPEL" });
-      expect(e.datos).toMatchObject({ cuentaDestino: "4988", bancoDestino: "BanCoppel" });
+    it("vale para cualquiera de nuestros bancos (Inbursa …6574)", () => {
+      const e = aplicarNota(lectura({ cuentaDestino: "6574" }), { cuentaBanco: "INBURSA" });
+      expect(e.datos).toMatchObject({ cuentaDestino: "6574", bancoDestino: "Inbursa" });
     });
 
     it("la imagen muestra otra cuenta (nuestra o ajena): la nota manda y se avisa la diferencia", () => {
-      const nuestra = aplicarNota(lectura({ cuentaDestino: "5884" }), { cuentaBanco: "INBURSA" });
+      const nuestra = aplicarNota(lectura({ cuentaDestino: "9994" }), { cuentaBanco: "INBURSA" });
       expect(nuestra.datos).toMatchObject({ cuentaDestino: null, bancoDestino: "Inbursa" });
-      expect(nuestra.notaAplicada?.diferencias).toEqual([{ campo: "cuenta", nota: "Inbursa", imagen: "…5884" }]);
-      const ajena = aplicarNota(lectura({ cuentaDestino: "8852" }), { cuentaBanco: "BANCOPPEL" });
+      expect(nuestra.notaAplicada?.diferencias).toEqual([{ campo: "cuenta", nota: "Inbursa", imagen: "…9994" }]);
+      const ajena = aplicarNota(lectura({ cuentaDestino: "1234" }), { cuentaBanco: "BANCOPPEL" });
       expect(ajena.datos).toMatchObject({ cuentaDestino: null, bancoDestino: "BanCoppel" });
-      expect(ajena.notaAplicada?.diferencias).toEqual([{ campo: "cuenta", nota: "BanCoppel", imagen: "…8852" }]);
+      expect(ajena.notaAplicada?.diferencias).toEqual([{ campo: "cuenta", nota: "BanCoppel", imagen: "…1234" }]);
     });
   });
 

@@ -12,7 +12,7 @@ Los datos esperados de cada imagen están en `tests/fixtures/imagenes-prueba.jso
 | **BBVA: la referencia cambia según la semana** (del 05 al 09-oct fue 2309260 en todos) | No se fija: se **aprende** de los pagos BBVA validados y se usa para BBVA sin referencia de fechas cercanas (±7 días). Sin ninguna aprendida, va en la nota | 10 de 10 comprobantes BBVA de esa semana; Banxico responde "demasiadas coincidencias" si se busca sin cuenta |
 | ✅ **BBVA de noche imprime la fecha del día siguiente** | Se busca primero el día anterior; "mañana" no cuenta como fecha futura | "09 octubre 21:08" → Banxico 08/10 21:09; "08 octubre 20:45" → Banxico 07/10. Con la fecha impresa Banxico **no** lo encuentra |
 | ✅ **Banorte: la referencia es la fecha aaMMdd** | Si el comprobante no la muestra (no la muestra nunca) | 07-oct-2026 → `261007` |
-| ✅ **Banco Azteca: la referencia son los últimos 7 dígitos de la cuenta destino** | Para deducir la cuenta destino y el banco cuando no se ven | `7841871` = tarjeta Banorte …7841871; `4616185` = CLABE Banamex …4616185 |
+| ✅ **Banco Azteca: la referencia son los últimos 7 dígitos de la cuenta destino** | Para deducir la cuenta destino y el banco cuando no se ven | `0000013` = tarjeta Banorte …0000013; `0000037` = CLABE Banamex …0000037 |
 | **BanCoppel: la referencia es la fecha ddMMaa + 0** | Si no se lee | 03-oct → `0310260`, 05-oct → `0510260` (`510260` sin el cero) |
 | **Citibanamex, Scotiabank, Compartamos: la referencia es la fecha ddMMaa** | Si no se lee | 05-oct → `51026`, 07-oct → `071026` |
 | ✅ **Mercado Pago: clave = "CPO" + número de comprobante; referencia = sus últimos 7 dígitos** | Siempre | `#182949974794` → `CPO182949974794`, ref `9974794` |
@@ -51,7 +51,7 @@ de la clave más el código del banco destino (072 = Banorte).
 - **Banco Azteca** (verde, logo circular verde con centro rojo): "Enviaste a una cuenta", fecha "08/Oct/2026 17:54:22 (CST)", origen "Guardadito", "Banamex ***185", referencia y clave. Su "Detalle de movimiento" (verde, "Transferencia Bancaria", "No. de referencia") no tiene logo ni nombre.
 - **Santander** (llama roja): "¡Enviaste una transferencia! / Comprobante", "BANORTE - TDD **1871" (destino), fecha "08/oct/26 - 10:25", "Ref. SuperMóvil", a veces "Número de referencia", "RFC cliente Santander", estatus "En proceso". Otro diseño: "TRANSFERENCIA ACEPTADA Y CONFIRMADA" con clave, referencia y banco destino, sin cuenta.
 - **BanCoppel**: "Transferencia exitosa", "$400⁰⁰ Monto transferido" (centavos en superíndice: el OCR lee 40000), "CUENTA EFECTIVA DIGITAL" de origen, "BANORTE/IXE *1871", "Tu clave de rastreo es:".
-- **Citibanamex**: "Transferencia exitosa · Esta transferencia ha sido aceptada…", "MiCuenta Banamex **459", "GABRIEL F**871" (3 dígitos), "Número de autorización", clave de 18 dígitos, "Referencia numérica". A veces sin fecha.
+- **Citibanamex**: "Transferencia exitosa · Esta transferencia ha sido aceptada…", "MiCuenta Banamex **459", "CARLOS R**871" (3 dígitos), "Número de autorización", clave de 18 dígitos, "Referencia numérica". A veces sin fecha.
 - **Spin by OXXO** (morado): fecha arriba, "Enviaste $…", "BANORTE - ****1871" o la CLABE completa, "Número de cuenta Spin" (**origen**), referencia, "ID de movimiento", clave `SPIN-…`.
 - **Mercado Pago**: "Comprobante de transferencia", "$ 690 MXN" (letra grande), "Origen y destino" (primero origen, luego destino), "Comprobante #…".
 - **Compartamos** (magenta): "¡Transferencia exitosa!", todo en dos columnas, referencia ddMMaa.

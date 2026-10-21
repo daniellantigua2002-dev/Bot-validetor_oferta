@@ -7,14 +7,14 @@ export function datosEjemplo(cambios: Partial<DatosExtraidos> = {}): DatosExtrai
     descripcionVisual: "Fondo blanco, logo morado 'spin by OXXO'.",
     bancoEmisor: { nombre: "Spin by OXXO", fuente: "logo", confianza: 0.95 },
     esMercadoPago: false,
-    cuentaDestino: "072650010004755884",
+    cuentaDestino: "072000000000000012",
     claveRastreo: "SPIN-20261008200443959PNEB9",
     referencia: "7454748",
     numeroOperacion: null,
     fecha: "2026-10-08",
     hora: "14:04:43",
     monto: 400,
-    beneficiario: "Gabriel Alejandro Fondacaro Rielo",
+    beneficiario: "Carlos Alberto Ramírez Soto",
     ...cambios,
   };
 }

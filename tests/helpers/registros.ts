@@ -6,7 +6,7 @@ export const registro = (cambios: Partial<RegistroUsado> = {}): RegistroUsado =>
   referencia: "7454748",
   monto: "400.00",
   fecha: "2026-10-08",
-  cuenta: "072650010004755884",
+  cuenta: "072000000000000012",
   emisor: "SPIN BY OXXO",
   usuario: "cli",
   validadoEn: "2026-10-08T20:10:00.000Z",

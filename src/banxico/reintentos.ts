@@ -174,7 +174,7 @@ const ORDEN_CUENTA_DEDUCIDA: TipoCuenta[] = ["tarjeta", "clabe", "cuenta"];
  * Números de nuestra cuenta a consultar (regla del usuario, 11-oct: si se tiene la cuenta, solo esa; si solo
  * se sabe el banco, todos sus números; 13-oct: un pago puede ir a la tarjeta, a la CLABE o al número de cuenta):
  * - la cuenta se vio en el comprobante: ese número. En los comprobantes reales, Banxico siempre tuvo el número que
- *   se veía (tarjeta → tarjeta, CLABE → CLABE, cuenta → cuenta: 12-oct, …3306 → 1000473306). Si se ve el número de
+ *   se veía (tarjeta → tarjeta, CLABE → CLABE, cuenta → cuenta: 12-oct, …3306 → 1000000001). Si se ve el número de
  *   cuenta, también su CLABE, después;
  * - no se vio (se dedujo del banco o la eligió la persona): todos sus números (tarjeta, CLABE y número de cuenta),
  *   empezando por el de la coincidencia. Inbursa no tiene tarjeta: CLABE y cuenta.

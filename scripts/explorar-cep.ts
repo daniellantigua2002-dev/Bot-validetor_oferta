@@ -10,7 +10,7 @@
  * Uso:
  *   npx tsx scripts/explorar-cep.ts                       # datos ficticios (no encontrado)
  *   npx tsx scripts/explorar-cep.ts --fecha 08-10-2026 --tipo T --criterio MBAN01002610080012345678 \
- *     --emisor 40012 --receptor 40072 --cuenta 072650010004755884 --monto 1032.00 --ver
+ *     --emisor 40012 --receptor 40072 --cuenta 072000000000000012 --monto 1032.00 --ver
  *
  * Opciones:
  *   --fecha     dd-MM-yyyy (por defecto: ayer en hora de CDMX)
