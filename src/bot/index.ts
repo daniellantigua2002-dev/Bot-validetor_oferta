@@ -260,7 +260,7 @@ export function crearBot(
     const enRespuesta = { message_id: mensajeOriginal, allow_sending_without_reply: true };
     if (respuesta.foto) {
       await conReintento(() =>
-        api.sendPhoto(chatId, new InputFile(respuesta.foto!), {
+        api.sendPhoto(chatId, new InputFile(respuesta.foto!, "banxico.png"), {
           caption: respuesta.texto,
           parse_mode: "HTML",
           reply_parameters: enRespuesta,

@@ -120,7 +120,7 @@ Con el plan gratuito (0.1 CPU, 512 MB): el OCR y la foto tardan más que en la P
 ## Dónde quedan los datos
 
 - `data/usados.json`: ya no se usa. Con `REGLAS.bloquearDuplicados = false` (en `src/config.ts`) el bot no guarda ni revisa los pagos ya validados. Si un día se vuelve a poner en `true`, el archivo vuelve a impedir validar dos veces el mismo pago.
-- `data/capturas/`: las capturas de Banxico de cada pago validado.
+- Las capturas de Banxico **no se guardan**: se generan en memoria y se envían directo a Telegram (la copia queda solo en el chat).
 - `data/referencias-aprendidas.json`: la referencia que pone BBVA (cambia según la semana), aprendida de los pagos BBVA validados; se usa para los BBVA sin referencia de fechas cercanas (±7 días). Se puede borrar: el bot la vuelve a aprender.
 - `data/cola.json`: comprobantes que están en la cola (y los que esperan para revisarse solos). Si el bot se reinicia, al arrancar los retoma y responde. No lo borres con el bot encendido.
 

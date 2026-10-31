@@ -29,7 +29,7 @@
 - **Arrancar el bot:** doble clic en `iniciar-bot.bat`, o `npm run bot`. Funciona mientras esa ventana esté abierta.
 - **En Telegram:** enviar la foto del comprobante en el grupo autorizado (o al bot en privado, solo `ALLOWED_USER_IDS`). Para mejor lectura, **como archivo**. Responde con la **foto de la tabla de Banxico** y un resumen. No envía PDF, por decisión del usuario.
 - **Línea de comandos:** `npm run validar -- <imagen> [--sin-registro] [--banco X] [--cuenta BANORTE]`.
-- Las capturas quedan en `data/capturas/`. Los pagos validados **ya no se guardan** (ver "Duplicados" en las decisiones).
+- Las capturas **no se guardan** (desde el 31-oct): se generan en memoria y se envían directo a Telegram. Los pagos validados **ya no se guardan** (ver "Duplicados" en las decisiones).
 
 ## Cómo funciona una validación
 
@@ -162,7 +162,7 @@ Todas las peticiones a Banxico (consultas, catálogos, los estilos de la foto y 
   3. **IA y OCR con fechas distintas:** la del OCR se prueba después de la de la IA (`fechasAlternativas` en `pipeline.ts`).
   4. **Fecha dentro de la clave** (`BANCOS[…].fechaEnClave`): BBVA, Azteca, Spin (UTC → CDMX), Santander, Scotiabank, Banorte y Compartamos. Va como otra fecha posible; un comprobante **sin fecha** se busca primero alrededor de la fecha de su clave.
 - [x] **Fecha adelantada** (hecho el 11-oct). La regla 5 ya no rechaza sin consultar: con hoy 10 y el comprobante del 12 se busca del 9 al 12 (los que ya pasaron: 10 y 9, de hoy hacia atrás). Si aparece, se valida; si no, *"Valida este comprobante en 1 o 2 días: la fecha del comprobante (12/10/2026) es posterior a hoy y el pago todavía no aparece en Banxico; busqué del 09/10 al 10/10/2026 (…)"*. Si es de más de 3 días adelante (ninguno de esos días ya pasó), se toma como mal leída: de hoy hacia atrás y el aviso *"puede estar mal leída"*. BBVA de noche con la fecha de mañana sigue igual.
-- [x] **Pago devuelto con foto** (pedido del usuario el 11-oct). Si Banxico dice Devuelto (también "En proceso de devolución" o "Retornado"), la respuesta es la de siempre (*"El pago existe en Banxico pero su estado es "Devuelto"."*) y además la foto de la tabla de Banxico (`data/capturas/…_devuelto.png`). No se registra como validado.
+- [x] **Pago devuelto con foto** (pedido del usuario el 11-oct). Si Banxico dice Devuelto (también "En proceso de devolución" o "Retornado"), la respuesta es la de siempre (*"El pago existe en Banxico pero su estado es "Devuelto"."*) y además la foto de la tabla de Banxico (desde el 31-oct se genera en memoria, sin archivo). No se registra como validado.
 - [x] **Para que no se rechace un comprobante bueno** (pedido del usuario el 11-oct, puntos 2, 3, 4, 6 y 7 del análisis): segunda opinión del monto, cuenta ajena con clave, cuenta no visible con clave, mismo banco con clave y tiempo máximo de 5 min. Detalle en "Decisiones tomadas".
 - [ ] **Dejados pendientes por el usuario el 11-oct** (no programar hasta que lo pida): el punto 9 del análisis (más muestras de comprobantes: prefijos de clave de Banorte, Compartamos, Nu y Klar; referencias de una sola muestra, ver más abajo). (El reconocimiento de los comprobantes de papel quedó descartado.)
 - [x] Comprobante **nocturno** (10-oct): Banxico registra el pago con la fecha del día en que se hizo; BBVA imprime la del día siguiente ("09 octubre 21:08" → Banxico 08/10; con 09-10 no lo encuentra). Compartamos (21:22) y Santander (22:06) imprimen el mismo día. El corte de BBVA está entre las 17:27 y las 20:45: `REGLAS.horaDiaAnteriorPrimero = "19:00"`.

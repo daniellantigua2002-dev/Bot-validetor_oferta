@@ -169,8 +169,8 @@ export interface Boton {
 export interface Respuesta {
   /** Texto (o pie de foto) en HTML. */
   texto: string;
-  /** Ruta de la imagen a enviar. */
-  foto?: string;
+  /** Imagen a enviar (PNG en memoria). */
+  foto?: Buffer;
   botones?: Boton[][];
 }
 
@@ -360,7 +360,7 @@ function respuestaSegunCodigo(r: ResultadoValidacion, id: string, nombre?: strin
     case "VALIDADO": {
       // La foto de Banxico ya muestra todos los datos: basta con avisarle a la persona.
       const texto = textoValidado(nombre);
-      if (r.captura) return { texto, foto: r.captura.ruta };
+      if (r.captura) return { texto, foto: r.captura.imagen };
       return { texto: `${texto}\n\n<i>No se pudo generar la captura: ${escapar(r.errorCaptura ?? "error desconocido")}</i>` };
     }
     case "MISMO_BANCO":
@@ -379,7 +379,7 @@ function respuestaSegunCodigo(r: ResultadoValidacion, id: string, nombre?: strin
     case "NO_LIQUIDADO": {
       const texto = `${r.pago?.estado === "EN_PROCESO" ? "⏳" : "❌"} ${mensaje}`;
       // Pago devuelto: va con la foto de la tabla de Banxico, para ver la devolución.
-      return r.captura ? { texto, foto: r.captura.ruta } : { texto };
+      return r.captura ? { texto, foto: r.captura.imagen } : { texto };
     }
     case "REQUIERE_CONFIRMACION_BANCO":
       return { texto: `❓ ${mensaje}${datosDelComprobante(r)}`, botones: botonesBanco(id, r.candidatosBanco) };

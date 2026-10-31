@@ -18,6 +18,9 @@ import {
 } from "../../src/bot/mensajes.js";
 import { CUENTAS_DESTINO } from "../../src/config.js";
 import { MENSAJES } from "../../src/rules/index.js";
+
+/** Foto de Banxico simulada (en memoria, como la real). */
+const FOTO = Buffer.from("png de banxico");
 import type { ResultadoValidacion } from "../../src/pipeline.js";
 
 const base = (cambios: Partial<ResultadoValidacion>): ResultadoValidacion => ({
@@ -54,8 +57,8 @@ const PAGO = {
 
 describe("respuestaFinal", () => {
   it("validado: solo la foto de Banxico y el aviso con el nombre de quien lo envió", () => {
-    const r = respuestaFinal(base({ codigo: "VALIDADO", pago: PAGO, captura: { ruta: "data/capturas/x.png", metodo: "local" } }), "", "Daniel");
-    expect(r).toEqual({ foto: "data/capturas/x.png", texto: "✅ Daniel, su comprobante fue validado." });
+    const r = respuestaFinal(base({ codigo: "VALIDADO", pago: PAGO, captura: { imagen: FOTO, metodo: "local" } }), "", "Daniel");
+    expect(r).toEqual({ foto: FOTO, texto: "✅ Daniel, su comprobante fue validado." });
   });
 
   it("validado sin nombre de Telegram (y el nombre se escapa)", () => {
@@ -124,8 +127,8 @@ describe("respuestaFinal", () => {
   it("devuelto: el aviso de siempre y además la foto de la tabla de Banxico", () => {
     const pago = { ...PAGO, estado: "DEVUELTO" as const };
     const mensaje = 'El pago existe en Banxico pero su estado es "Devuelto".';
-    const r = respuestaFinal(base({ codigo: "NO_LIQUIDADO", mensaje, pago, captura: { ruta: "data/capturas/d.png", metodo: "local" } }));
-    expect(r).toEqual({ texto: `❌ ${mensaje}`, foto: "data/capturas/d.png" });
+    const r = respuestaFinal(base({ codigo: "NO_LIQUIDADO", mensaje, pago, captura: { imagen: FOTO, metodo: "local" } }));
+    expect(r).toEqual({ texto: `❌ ${mensaje}`, foto: FOTO });
     // Si no se pudo dibujar la captura, solo el aviso.
     expect(respuestaFinal(base({ codigo: "NO_LIQUIDADO", mensaje, pago }))).toEqual({ texto: `❌ ${mensaje}` });
   });
@@ -237,7 +240,7 @@ describe("avisos de una foto a la vez", () => {
 describe("respuesta con la nota de la foto", () => {
   const base = { reglas: [], intentos: [], tiempos: {} };
   const nota = { datos: { fecha: "2026-10-09" }, entendidos: ["fecha 09/10/2026"], noEntendidos: ["mont 400"] };
-  const captura = { ruta: "data/capturas/x.png", metodo: "local" as const };
+  const captura = { imagen: FOTO, metodo: "local" as const };
 
   it("validado: solo agrega el aviso si la nota contradice la imagen", () => {
     const sinDiferencias = respuestaFinal({ ...base, codigo: "VALIDADO", mensaje: "", captura }, "", "Ana", nota);

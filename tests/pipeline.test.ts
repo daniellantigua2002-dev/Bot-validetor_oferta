@@ -85,6 +85,9 @@ interface OpcionesFalsas {
   iaNuncaTermina?: boolean;
 }
 
+/** Foto de Banxico simulada (en memoria, como la real). */
+const FOTO = Buffer.from("png de banxico");
+
 /** Dependencias simuladas que registran lo que se les pidió. */
 function falsas(opciones: OpcionesFalsas = {}) {
   const llamadas = { completa: 0, busquedas: [] as EntradaBusqueda[], capturas: [] as string[], registros: [] as RegistroUsado[] };
@@ -102,10 +105,10 @@ function falsas(opciones: OpcionesFalsas = {}) {
       llamadas.busquedas.push(entrada);
       return busquedas.length > 1 ? busquedas.shift()! : busquedas[0]!;
     },
-    capturar: async (_consulta, base) => {
+    capturar: async (consulta) => {
       if (opciones.capturaFalla) throw new Error("sin navegador");
-      llamadas.capturas.push(base);
-      return { ruta: `data/capturas/${base}.png`, metodo: "local" };
+      llamadas.capturas.push(consulta.criterio);
+      return { imagen: FOTO, metodo: "local" };
     },
     almacen: {
       leer: async () => lecturas.shift() ?? [...llamadas.registros],
@@ -125,7 +128,7 @@ describe.skip("validarComprobante: ruta normal", () => {
     const progreso: Progreso[] = [];
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA, alProgreso: (p) => progreso.push(p) }, deps);
 
-    expect(r).toMatchObject({ codigo: "VALIDADO", ruta: "normal", captura: { ruta: `data/capturas/2026-10-08_${CLAVE_REAL}.png` } });
+    expect(r).toMatchObject({ codigo: "VALIDADO", ruta: "normal", captura: { imagen: FOTO } });
     expect(llamadas.registros).toEqual([
       expect.objectContaining({
         claveRastreo: CLAVE_REAL,
@@ -168,7 +171,7 @@ describe.skip("validarComprobante: ruta normal", () => {
     const { deps, llamadas } = falsas({ busquedas: [DEVUELTO] });
     const progreso: Progreso[] = [];
     const r = await validarComprobante(imagen, { usuario: "123", ahora: AHORA, alProgreso: (p) => progreso.push(p) }, deps);
-    expect(r).toMatchObject({ codigo: "NO_LIQUIDADO", mensaje: DEVUELTO.mensaje, captura: { ruta: `data/capturas/2026-10-08_${CLAVE_REAL}_devuelto.png` } });
+    expect(r).toMatchObject({ codigo: "NO_LIQUIDADO", mensaje: DEVUELTO.mensaje, captura: { imagen: FOTO } });
     expect(llamadas.registros).toEqual([]);
     // Sin clave en el progreso: no es un pago registrado.
     expect(progreso.at(-1)).toEqual({ etapa: "CAPTURA" });

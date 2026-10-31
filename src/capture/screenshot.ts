@@ -1,6 +1,7 @@
 /**
  * Foto del resultado de Banxico (la tabla con referencia, clave, instituciones, estado, fechas,
- * cuenta beneficiaria y monto) que se devuelve al usuario.
+ * cuenta beneficiaria y monto) que se devuelve al usuario. La foto queda en memoria (PNG) y se envía
+ * tal cual a Telegram: no se guarda en el disco.
  *
  * - renderizarTabla: dibuja la tabla que ya devolvió Banxico con los estilos del sitio, más un
  *   marco blanco y celdas holgadas (rápido y sin otra consulta).
@@ -10,14 +11,13 @@
  */
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { peticion, type ConsultaBanxico } from "../banxico/cliente.js";
 import { parsearRespuesta } from "../banxico/parser.js";
 import { RITMO, turnoBanxico } from "../banxico/ritmo.js";
 import { BANXICO, CAPTURA, ZONA_HORARIA } from "../config.js";
 import { enServidor } from "../entorno.js";
 
-export const CARPETA_CAPTURAS = resolve("data/capturas");
 const SELECTOR_TABLA = "#consultaMISPEI table#xxx";
 
 let navegador: Promise<Browser> | null = null;
@@ -42,16 +42,11 @@ export async function cerrarNavegador(): Promise<void> {
   await (await n?.catch(() => null))?.close();
 }
 
-/** Nombre de archivo seguro: "2026-10-08_SPIN-20261008200443959PNEB9". */
-export function nombreBase(fechaIso: string, clave: string): string {
-  return `${fechaIso}_${clave.replace(/[^A-Za-z0-9_-]/g, "_")}`;
-}
-
 const contextoNuevo = (b: Browser) =>
   b.newContext({ locale: "es-MX", timezoneId: ZONA_HORARIA, viewport: { width: 1100, height: 900 }, deviceScaleFactor: 2 });
 
-/** Repite la consulta en el sitio del CEP y guarda la captura de la tabla en `destino`. */
-export async function capturarEnSitio(consulta: ConsultaBanxico, destino: string): Promise<void> {
+/** Repite la consulta en el sitio del CEP y devuelve la foto de la tabla (PNG). */
+export async function capturarEnSitio(consulta: ConsultaBanxico): Promise<Buffer> {
   const contexto = await contextoNuevo(await obtenerNavegador());
   try {
     const page = await contexto.newPage();
@@ -96,7 +91,7 @@ export async function capturarEnSitio(consulta: ConsultaBanxico, destino: string
     if (r.tipo !== "PAGOS") throw new Error(`al repetir la consulta en el navegador Banxico respondió ${r.tipo}`);
     await page.locator(SELECTOR_TABLA).first().waitFor({ state: "visible", timeout: 15_000 });
     // Misma presentación que el modo local: la tabla que devolvió Banxico con el marco holgado.
-    await renderizarTabla(html, destino);
+    return await renderizarTabla(html);
   } finally {
     await contexto.close();
   }
@@ -149,8 +144,8 @@ function estilosBanxico(): Promise<string | null> {
   });
 }
 
-/** Dibuja la tabla a partir del HTML que ya devolvió Banxico (sin volver a consultar). */
-export async function renderizarTabla(html: string, destino: string): Promise<void> {
+/** Dibuja la tabla a partir del HTML que ya devolvió Banxico (sin volver a consultar) y devuelve la foto (PNG). */
+export async function renderizarTabla(html: string): Promise<Buffer> {
   const tabla = html.replace(/<!--[\s\S]*?-->/g, "").match(/<table\b[^>]*\bid="xxx"[\s\S]*?<\/table>/i)?.[0];
   if (!tabla) throw new Error("la respuesta de Banxico no trae la tabla del resultado");
   if (!contextoLocal) {
@@ -172,42 +167,35 @@ ${hojaBanxico}
       { waitUntil: "load", timeout: BANXICO.timeoutMs },
     );
     await page.evaluate(() => document.fonts.ready);
-    await page.locator("#marco").screenshot({ path: destino });
+    // Sin `path`: Playwright devuelve la imagen en memoria y no escribe ningún archivo.
+    return await page.locator("#marco").screenshot({ type: "png" });
   } finally {
     await page.close();
   }
 }
 
 export interface Captura {
-  ruta: string;
+  /** La foto (PNG), en memoria: se envía a Telegram sin pasar por el disco. */
+  imagen: Buffer;
   metodo: "sitio" | "local";
   /** Motivo por el que no se pudo capturar en el sitio, si aplica. */
   aviso?: string;
 }
 
-/** Foto de la tabla en data/capturas/<base>.png, con el modo de CAPTURA.modo y el otro como respaldo. */
-export async function capturarResultado(
-  consulta: ConsultaBanxico,
-  base: string,
-  html?: string,
-  carpeta = CARPETA_CAPTURAS,
-): Promise<Captura> {
-  await mkdir(carpeta, { recursive: true });
-  const ruta = join(carpeta, `${base}.png`);
+/** Foto de la tabla, con el modo de CAPTURA.modo y el otro como respaldo. */
+export async function capturarResultado(consulta: ConsultaBanxico, html?: string): Promise<Captura> {
   const local = async () => {
     if (!html) throw new Error("no hay HTML de Banxico para dibujar la tabla");
-    await renderizarTabla(html, ruta);
+    return renderizarTabla(html);
   };
   const [primero, respaldo] =
     CAPTURA.modo === "local"
-      ? ([[local, "local"], [() => capturarEnSitio(consulta, ruta), "sitio"]] as const)
-      : ([[() => capturarEnSitio(consulta, ruta), "sitio"], [local, "local"]] as const);
+      ? ([[local, "local"], [() => capturarEnSitio(consulta), "sitio"]] as const)
+      : ([[() => capturarEnSitio(consulta), "sitio"], [local, "local"]] as const);
   try {
-    await primero[0]();
-    return { ruta, metodo: primero[1] };
+    return { imagen: await primero[0](), metodo: primero[1] };
   } catch (e) {
-    await respaldo[0]();
-    return { ruta, metodo: respaldo[1], aviso: (e as Error).message };
+    return { imagen: await respaldo[0](), metodo: respaldo[1], aviso: (e as Error).message };
   } finally {
     // En el servidor hay poca memoria (512 MB en Render gratis): el navegador no se queda abierto (abrirlo tarda 1–2 s).
     if (enServidor) await cerrarNavegador().catch(() => undefined);

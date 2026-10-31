@@ -85,7 +85,10 @@ function imprimir(r: ResultadoValidacion): void {
   console.log(`${ICONOS[r.codigo] ?? "❌"} ${r.codigo}: ${r.mensaje}`);
   if (r.ruta) console.log(`   Ruta: ${r.ruta === "rapida" ? "rápida (datos del OCR, sin esperar a la IA)" : "normal"}`);
   if (r.pago) console.log(`   Pago: ${JSON.stringify(r.pago)}`);
-  if (r.captura) console.log(`   Captura: ${r.captura.ruta} (${r.captura.metodo}${r.captura.aviso ? `; respaldo porque: ${r.captura.aviso}` : ""})`);
+  if (r.captura) {
+    const kb = Math.round(r.captura.imagen.length / 1024);
+    console.log(`   Captura: generada, ${kb} KB, sin guardar (${r.captura.metodo}${r.captura.aviso ? `; respaldo porque: ${r.captura.aviso}` : ""})`);
+  }
   if (r.errorCaptura) console.log(`   No se pudo generar la captura: ${r.errorCaptura}`);
   const t = r.tiempos;
   console.log(`   Tiempos: lectura ${seg(t.lectura)} · Banxico ${seg(t.banxico)} · captura ${seg(t.captura)} · total ${seg(t.total)}`);

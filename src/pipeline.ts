@@ -9,7 +9,7 @@
  */
 import type { ConsultaBanxico } from "./banxico/cliente.js";
 import { buscarEnBanxico, type EntradaBusqueda, type ResultadoBusqueda } from "./banxico/reintentos.js";
-import { capturarResultado, nombreBase, type Captura } from "./capture/screenshot.js";
+import { capturarResultado, type Captura } from "./capture/screenshot.js";
 import { formatInTimeZone } from "date-fns-tz";
 import { BANCOS, CUENTAS_DESTINO, REGLAS, ZONA_HORARIA, type ClaveBanco, type DefinicionBanco } from "./config.js";
 import { evaluarBancoEmisor, type EvaluacionBanco } from "./extraction/banco-emisor.js";
@@ -137,7 +137,8 @@ export interface ResultadoValidacion {
 export interface DependenciasPipeline {
   iniciarExtraccion: (imagen: Buffer) => ExtraccionEnCurso;
   buscar: (entrada: EntradaBusqueda) => Promise<ResultadoBusqueda>;
-  capturar: (consulta: ConsultaBanxico, base: string, html?: string) => Promise<Captura>;
+  /** Foto de la tabla de Banxico, en memoria (no se guarda en el disco). */
+  capturar: (consulta: ConsultaBanxico, html?: string) => Promise<Captura>;
   /** Pagos ya validados. null: no se revisan ni se guardan (REGLAS.bloquearDuplicados = false). */
   almacen: Pick<AlmacenUsados, "leer" | "registrar"> | null;
   /** Referencias que cambian con el tiempo (BBVA), aprendidas de los pagos validados. */
@@ -147,7 +148,7 @@ export interface DependenciasPipeline {
 export const DEPENDENCIAS_PIPELINE: DependenciasPipeline = {
   iniciarExtraccion: (imagen) => iniciarExtraccion(imagen),
   buscar: (entrada) => buscarEnBanxico(entrada),
-  capturar: (consulta, base, html) => capturarResultado(consulta, base, html),
+  capturar: (consulta, html) => capturarResultado(consulta, html),
   almacen: REGLAS.bloquearDuplicados ? new AlmacenUsados() : null,
   referencias: new ReferenciasAprendidas(),
 };
@@ -735,8 +736,7 @@ async function finalizar(
     opciones.alProgreso?.({ etapa: "CAPTURA" });
     const t = Date.now();
     try {
-      const base = nombreBase(isoDesdeBanxico(conLaQue.fecha), `${encontrado.claveRastreo ?? conLaQue.criterio}_devuelto`);
-      return { ...resultado, codigo: "NO_LIQUIDADO", captura: await deps.capturar(conLaQue, base, busqueda.html) };
+      return { ...resultado, codigo: "NO_LIQUIDADO", captura: await deps.capturar(conLaQue, busqueda.html) };
     } catch (e) {
       return { ...resultado, codigo: "NO_LIQUIDADO", errorCaptura: (e as Error).message };
     } finally {
@@ -775,7 +775,7 @@ async function finalizar(
   opciones.alProgreso?.({ etapa: "CAPTURA", clave });
   const t = Date.now();
   try {
-    const captura = await deps.capturar(consulta, nombreBase(isoDesdeBanxico(consulta.fecha), clave), busqueda.html);
+    const captura = await deps.capturar(consulta, busqueda.html);
     return { ...resultado, codigo: "VALIDADO", captura };
   } catch (e) {
     return { ...resultado, codigo: "VALIDADO", errorCaptura: (e as Error).message };
