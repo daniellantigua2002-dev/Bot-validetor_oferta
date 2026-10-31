@@ -16,8 +16,8 @@ const ANCHO_MAXIMO_OCR = 3200;
 const UMBRAL_BINARIZACION = 165;
 /** Brillo medio por debajo del cual se considera una captura en modo oscuro. */
 const BRILLO_MODO_OSCURO = 110;
-/** Si Tesseract tarda más que esto en una lectura, se mata el proceso. */
-const LIMITE_LECTURA_MS = 20_000;
+/** Si Tesseract tarda más que esto en una lectura, se mata el proceso. 40 s: en Render hay solo 0,1 CPU. */
+const LIMITE_LECTURA_MS = 40_000;
 
 /** Modos de segmentación de página de Tesseract (--psm). */
 const PSM_BLOQUE = 6; // la página como un solo bloque de texto
