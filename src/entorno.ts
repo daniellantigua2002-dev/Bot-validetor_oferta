@@ -19,6 +19,10 @@ const EntornoSchema = z.object({
   ALLOWED_CHAT_IDS: z.string().default(""),
   // Lo pone el servidor (Render): con él, el bot abre una página de salud en ese puerto. En la PC, vacío.
   PORT: z.string().default(""),
+  // Programa de Tesseract para el OCR local (en Windows puede hacer falta la ruta completa al .exe).
+  TESSERACT_CMD: z.string().min(1).default("tesseract"),
+  // Carpeta con spa.traineddata (se genera con npm run preparar-tessdata).
+  TESSDATA_DIR: z.string().min(1).default("./tessdata"),
 });
 
 const crudo = EntornoSchema.parse(process.env);
@@ -44,6 +48,8 @@ export const entorno = {
   gruposPermitidos: listaDeIds(crudo.ALLOWED_CHAT_IDS),
   /** Puerto de la página de salud; null en la PC (sin servidor). */
   puerto: crudo.PORT.trim() ? Number(crudo.PORT) : null,
+  tesseractCmd: crudo.TESSERACT_CMD,
+  tessdataDir: crudo.TESSDATA_DIR,
 };
 
 /** ¿Corre en un servidor (Render)? Allí hay poca memoria: el navegador de la foto se cierra al terminar. */

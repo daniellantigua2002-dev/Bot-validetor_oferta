@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
+    "preparar-tessdata": "node -e \"const fs=require('node:fs'),zlib=require('node:zlib');fs.mkdirSync('tessdata',{recursive:true});fs.writeFileSync('tessdata/spa.traineddata',zlib.gunzipSync(fs.readFileSync('node_modules/@tesseract.js-data/spa/4.0.0_best_int/spa.traineddata.gz')))\"",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -20,6 +21,7 @@
     "extraer": "tsx scripts/probar-extraccion.ts",
     "probar-imagenes": "tsx scripts/probar-imagenes.ts",
     "comparar-modelos": "tsx scripts/comparar-modelos.ts",
+    "comparar-ocr": "tsx scripts/comparar-ocr.ts",
     "bot": "tsx src/index.ts"
   },
   "dependencies": {
@@ -30,10 +32,10 @@
     "openai": "^7.31.0",
     "playwright": "^1.64.0",
     "sharp": "^0.35.5",
-    "tesseract.js": "^7.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@tesseract.js-data/spa": "1.0.0",
     "@types/node": "^26.6.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

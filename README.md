@@ -11,10 +11,11 @@ Bot de Telegram que valida comprobantes de transferencia SPEI contra el
 
 ## Instalación
 
-Necesitas Node.js 20 o superior.
+Necesitas Node.js 20 o superior y [Tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html) 5 para el OCR local (en Windows, el instalador de UB Mannheim: `winget install UB-Mannheim.TesseractOCR`).
 
 ```bash
 npm install
+npm run preparar-tessdata   # deja el modelo de español en tessdata/
 npx playwright install chromium
 ```
 
@@ -31,6 +32,8 @@ Copia `.env.example` como `.env` y llena:
 | `TELEGRAM_BOT_TOKEN` | Token que da @BotFather al crear el bot |
 | `ALLOWED_USER_IDS` | IDs de Telegram que pueden usar el bot **en privado**, separados por coma (se obtienen con @userinfobot) |
 | `ALLOWED_CHAT_IDS` | IDs de los **grupos** donde cualquier miembro puede usar el bot (empiezan con `-100`). Al agregar el bot a un grupo, su ID aparece en la ventana del bot |
+| `TESSERACT_CMD` | Opcional. Programa de Tesseract; por defecto `tesseract`. En Windows el instalador no lo pone en el PATH: `C:\Program Files\Tesseract-OCR\tesseract.exe` |
+| `TESSDATA_DIR` | Opcional. Carpeta con `spa.traineddata`; por defecto `./tessdata` |
 
 Nunca subas el `.env` a git ni lo compartas.
 

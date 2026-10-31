@@ -1,8 +1,9 @@
 /**
  * Prueba de integración con Tesseract real sobre comprobantes sintéticos.
- * La primera ejecución descarga el modelo de español a .cache/tesseract.
+ * Necesita Tesseract instalado (TESSERACT_CMD) y el modelo de npm run preparar-tessdata.
  */
 import { afterAll, describe, expect, it } from "vitest";
+import { entorno } from "../../src/entorno.js";
 import { extraerConOcr, terminarOcr } from "../../src/extraction/ocr-fallback.js";
 import { imagenConTexto } from "../helpers/imagen-sintetica.js";
 import { TEXTO_KLAR, TEXTO_SPIN } from "./textos-ocr.js";
@@ -33,5 +34,15 @@ describe("OCR con Tesseract", () => {
       fecha: "2026-09-22",
       monto: 1352,
     });
+  });
+
+  it("si Tesseract falla, da error con lo que escribió en stderr", async () => {
+    const carpeta = entorno.tessdataDir;
+    entorno.tessdataDir = "no-existe";
+    try {
+      await expect(extraerConOcr(await imagenConTexto(["Hola"]))).rejects.toThrow(/Tesseract terminó con 1: .*spa/s);
+    } finally {
+      entorno.tessdataDir = carpeta;
+    }
   });
 });

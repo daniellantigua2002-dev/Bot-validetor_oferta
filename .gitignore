@@ -15,3 +15,9 @@ imagenes prueba/
 # Comprobantes de papel (muestras reales, fuera de git). Se cubre la errata histórica "Comprobnates".
 Comprobnates de papel/
 Comprobantes de papel/
+# Mismos comprobantes reales, con el nombre de carpeta que tienen en esta PC
+imagene_de_prueba/
+# Salidas de scripts/comparar-ocr.ts (llevan el texto leído de comprobantes reales)
+scripts/salidas/
+# Modelo de español de Tesseract (se genera con npm run preparar-tessdata)
+tessdata/
