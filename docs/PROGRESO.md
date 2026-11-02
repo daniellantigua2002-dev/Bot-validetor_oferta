@@ -195,7 +195,7 @@ Todas las peticiones a Banxico (consultas, catálogos, los estilos de la foto y 
 src/
   index.ts               arranca el bot
   config.ts              CUENTAS_DESTINO, REGLAS, CAPTURA, BANXICO y BANCOS
-  entorno.ts             .env (NVIDIA_API_KEY, NVIDIA_MODEL, GEMINI_API_KEY, GEMINI_MODEL, TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS, ALLOWED_CHAT_IDS)
+  entorno.ts             .env (NVIDIA_API_KEY, NVIDIA_MODEL, GEMINI_API_KEY, GEMINI_MODEL, GEMINI_MODEL_RESPALDO, TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS, ALLOWED_CHAT_IDS)
   pipeline.ts            orquestador (ruta rápida y ruta normal)
   cli.ts                 npm run validar
   extraction/            prompt, nvidia (Gemini en rotación y gemma de respaldo), OCR, campos-texto, banco-emisor, index

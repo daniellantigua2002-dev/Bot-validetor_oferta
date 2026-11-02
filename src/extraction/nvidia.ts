@@ -33,6 +33,11 @@ export class ErrorExtraccion extends Error {
     super(mensaje);
     this.name = "ErrorExtraccion";
   }
+
+  /** Código HTTP de la API cuando la llamada falló (429 sin cuota, 503 saturado…). */
+  get estado(): number | undefined {
+    return (this.causa as { status?: number } | undefined)?.status;
+  }
 }
 
 /** Lo mínimo del cliente de OpenAI que se usa (permite simularlo en los tests). */
@@ -159,33 +164,64 @@ export async function extraerConNvidia(imagen: Buffer, opciones: OpcionesNvidia 
 export interface ModeloVision {
   nombre: string;
   extraer: (imagen: Buffer) => Promise<DatosExtraidos>;
+  /**
+   * Familia a la que pertenece (el modelo de Gemini, o NVIDIA). Si uno responde saturado (503), los de su
+   * familia que aún no arrancaron se omiten: reintentar con otra clave del mismo modelo no ayuda.
+   */
+  grupo?: string;
+}
+
+/** Lo que `modelosConfigurados` necesita del entorno (parametrizable para los tests). */
+export interface ConfigModelos {
+  geminiApiKeys: string[];
+  geminiModelos: string[];
+  geminiModeloRespaldo: string;
+  nvidiaApiKey: string;
+  nvidiaModel: string;
+}
+
+export interface FabricaClientes {
+  gemini(apiKey: string): ClienteChat;
+  nvidia(apiKey: string): ClienteChat;
 }
 
 /**
  * Modelos configurados, en el orden en que entran a la carrera:
- * 1. Gemini (Google AI Studio): cada clave de cada cuenta, con cada modelo. Es la IA principal porque es
- *    rápida y precisa. Cuando una clave se queda sin cuota del día (429) falla al instante y la carrera
- *    salta sola a la siguiente clave; así se aprovechan los 20/día de cada cuenta antes de pasar a NVIDIA.
- *    Con varias claves, el nombre lleva "#1", "#2"… (el número de clave) para distinguirlas en los registros.
- * 2. NVIDIA (gemma) como respaldo final: solo entra cuando se agotó la cuota de TODAS las claves de Gemini.
+ * 1. Gemini (Google AI Studio), modelo principal (GEMINI_MODEL): cada clave de cada cuenta, en orden. Es la
+ *    IA principal porque es rápida y precisa. Cuando una clave se queda sin cuota del día (429) falla al
+ *    instante y la carrera salta sola a la siguiente clave; así se aprovechan los 20/día de cada cuenta.
+ *    Si responde saturado (503) se omiten las demás claves de ese modelo (no ayudaría) y se pasa al respaldo.
+ * 2. Gemini de respaldo (GEMINI_MODEL_RESPALDO, flash-lite), con las mismas claves y las mismas reglas:
+ *    429 → siguiente clave; 503 → directo a NVIDIA. Vacío = sin este paso.
+ * 3. NVIDIA (gemma) como respaldo final: solo entra cuando se agotaron (o están saturados) los de Gemini.
  *    Tiene límites mucho más generosos, así que el servicio nunca se queda sin IA.
+ * El nombre de cada uno lleva el modelo y la clave ("gemini-3.5-flash#2") para distinguirlos en los registros.
  * Si ninguno responde, el pipeline usa el OCR local (ver extraction/index.ts).
  */
-export function modelosConfigurados(): ModeloVision[] {
+export function modelosConfigurados(
+  config: ConfigModelos = entorno,
+  clientes: FabricaClientes = { gemini: crearClienteGemini, nvidia: crearClienteNvidia },
+): ModeloVision[] {
   const modelos: ModeloVision[] = [];
-  const varias = entorno.geminiApiKeys.length > 1;
-  entorno.geminiApiKeys.forEach((apiKey, i) => {
-    const cliente = crearClienteGemini(apiKey);
-    for (const modelo of entorno.geminiModelos) {
+  const geminis = [...new Set([...config.geminiModelos, config.geminiModeloRespaldo].filter(Boolean))];
+  for (const modelo of geminis) {
+    config.geminiApiKeys.forEach((apiKey, i) => {
+      const cliente = clientes.gemini(apiKey);
       modelos.push({
-        nombre: varias ? `${modelo}#${i + 1}` : modelo,
+        nombre: `${modelo}#${i + 1}`,
+        grupo: modelo,
         extraer: (img) => extraerConNvidia(img, { cliente, modelo, proveedor: "Gemini", maxTokens: TOKENS_GEMINI }),
       });
-    }
-  });
-  if (entorno.nvidiaApiKey && entorno.nvidiaModel) {
-    const modelo = entorno.nvidiaModel;
-    modelos.push({ nombre: modelo, extraer: (img) => extraerConNvidia(img, { cliente: crearClienteNvidia(), modelo }) });
+    });
+  }
+  if (config.nvidiaApiKey && config.nvidiaModel) {
+    const modelo = config.nvidiaModel;
+    const apiKey = config.nvidiaApiKey;
+    modelos.push({
+      nombre: modelo,
+      grupo: "nvidia",
+      extraer: (img) => extraerConNvidia(img, { cliente: clientes.nvidia(apiKey), modelo }),
+    });
   }
   return modelos;
 }
@@ -193,7 +229,8 @@ export function modelosConfigurados(): ModeloVision[] {
 /**
  * Carrera escalonada entre los modelos: arranca el primero; si falla, o si en `esperaMs` no ha
  * respondido, arranca también el siguiente (y así con el resto). Gana la primera respuesta válida;
- * las demás se ignoran. Lanza ErrorExtraccion con los motivos de todos si ninguno responde bien.
+ * las demás se ignoran. Si uno responde saturado (HTTP 503), los pendientes de su mismo `grupo` se omiten.
+ * Lanza ErrorExtraccion con los motivos de todos si ninguno responde bien.
  */
 export function extraerConModelos(
   imagen: Buffer,
@@ -203,16 +240,22 @@ export function extraerConModelos(
   if (modelos.length === 0) return Promise.reject(new ErrorExtraccion("no hay modelos configurados (falta NVIDIA_API_KEY o GEMINI_API_KEY)"));
   return new Promise((resolver, rechazar) => {
     const errores: string[] = [];
-    let siguiente = 0;
+    const saturados = new Set<string>();
+    let indice = 0;
+    let iniciados = 0;
     let terminados = 0;
     let listo = false;
     let reloj: ReturnType<typeof setTimeout> | undefined;
 
-    const arrancar = () => {
-      if (listo || siguiente >= modelos.length) return;
-      const { nombre, extraer } = modelos[siguiente++]!;
+    /** Arranca el siguiente modelo que no esté omitido. Devuelve false si ya no queda ninguno. */
+    const arrancar = (): boolean => {
+      if (listo) return false;
+      while (indice < modelos.length && modelos[indice]!.grupo !== undefined && saturados.has(modelos[indice]!.grupo!)) indice++;
+      if (indice >= modelos.length) return false;
+      const { nombre, extraer, grupo } = modelos[indice++]!;
+      iniciados++;
       clearTimeout(reloj);
-      if (siguiente < modelos.length) reloj = setTimeout(arrancar, esperaMs);
+      if (indice < modelos.length) reloj = setTimeout(arrancar, esperaMs);
       extraer(imagen).then(
         (datos) => {
           if (listo) return;
@@ -222,15 +265,18 @@ export function extraerConModelos(
         },
         (e: unknown) => {
           errores.push(`${nombre}: ${(e as Error).message}`);
+          terminados++;
           if (listo) return;
-          if (++terminados === modelos.length) {
+          if (grupo !== undefined && (e as ErrorExtraccion).estado === 503) saturados.add(grupo);
+          // Todos los que corrían fallaron: el siguiente arranca ya, sin esperar. Si no queda ninguno, se rinde.
+          if (terminados === iniciados && !arrancar()) {
             listo = true;
+            clearTimeout(reloj);
             rechazar(new ErrorExtraccion(errores.join(" | ")));
-          } else if (terminados === siguiente) {
-            arrancar(); // todos los que corrían fallaron: el siguiente arranca ya, sin esperar
           }
         },
       );
+      return true;
     };
     arrancar();
   });

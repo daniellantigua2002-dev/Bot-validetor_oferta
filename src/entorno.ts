@@ -14,6 +14,9 @@ const EntornoSchema = z.object({
   GEMINI_API_KEY: z.string().default(""),
   // Uno o varios modelos separados por coma: si uno está saturado (503) o sin cuota, entra el siguiente.
   GEMINI_MODEL: z.string().min(1).default("gemini-3.5-flash"),
+  // Modelo de respaldo de Gemini: solo entra si GEMINI_MODEL se queda sin cuota en todas las claves (429)
+  // o responde saturado (503). Vacío = sin respaldo.
+  GEMINI_MODEL_RESPALDO: z.string().default("gemini-3.5-flash-lite"),
   TELEGRAM_BOT_TOKEN: z.string().default(""),
   ALLOWED_USER_IDS: z.string().default(""),
   ALLOWED_CHAT_IDS: z.string().default(""),
@@ -41,6 +44,8 @@ export const entorno = {
   /** Claves de Gemini (una por cuenta de Google), en el orden en que se rotan. */
   geminiApiKeys: crudo.GEMINI_API_KEY.split(",").map((k) => k.trim()).filter(Boolean),
   geminiModelos: crudo.GEMINI_MODEL.split(",").map((m) => m.trim()).filter(Boolean),
+  /** Modelo de respaldo de Gemini; "" = sin respaldo. */
+  geminiModeloRespaldo: crudo.GEMINI_MODEL_RESPALDO.trim(),
   telegramToken: crudo.TELEGRAM_BOT_TOKEN,
   /** Pueden usar el bot en privado. */
   usuariosPermitidos: listaDeIds(crudo.ALLOWED_USER_IDS),

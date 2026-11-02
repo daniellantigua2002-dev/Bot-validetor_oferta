@@ -29,6 +29,7 @@ Copia `.env.example` como `.env` y llena:
 | `NVIDIA_MODEL` | Modelo de visión de **respaldo final** (NVIDIA Build): entra solo cuando se agota la cuota de todas las claves de Gemini. Por defecto `google/gemma-4-31b-it` |
 | `GEMINI_API_KEY` | **IA principal**: una o varias claves gratuitas de [Google AI Studio](https://aistudio.google.com/apikey) separadas por coma, **una por cuenta de Google** (cada cuenta tiene sus 20 peticiones/día). El bot las rota en orden y salta a la siguiente cuando una se queda sin cuota del día; al agotarse todas, pasa a `NVIDIA_MODEL`. Vacía = sin Gemini |
 | `GEMINI_MODEL` | Modelos de Gemini separados por coma; si uno está saturado o sin cuota entra el siguiente. Por defecto `gemini-3.5-flash` (el `gemini-2.5-flash` ya no está disponible para claves nuevas) |
+| `GEMINI_MODEL_RESPALDO` | Respaldo de Gemini: solo entra si `GEMINI_MODEL` se queda sin cuota (429) en todas las claves o responde saturado (503). Por defecto `gemini-3.5-flash-lite`; vacío = sin respaldo |
 | `TELEGRAM_BOT_TOKEN` | Token que da @BotFather al crear el bot |
 | `ALLOWED_USER_IDS` | IDs de Telegram que pueden usar el bot **en privado**, separados por coma (se obtienen con @userinfobot) |
 | `ALLOWED_CHAT_IDS` | IDs de los **grupos** donde cualquier miembro puede usar el bot (empiezan con `-100`). Al agregar el bot a un grupo, su ID aparece en la ventana del bot |
